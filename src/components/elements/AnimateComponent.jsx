@@ -33,7 +33,7 @@ function getRandomRotation() {
 const AnimateComponent = ({
   entry = "playful",
   exit = "fadeOutDown",
-  ease = "elastic.out(1, 0.32)",
+  ease = "elastic.out(0.95, 0.32)",
   duration = 1400,
   delay = 0,
   className,

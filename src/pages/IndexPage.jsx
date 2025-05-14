@@ -6,7 +6,9 @@ export default function IndexPage() {
   return (
     <>
       <LenisSmoothScrollProvider />
-      <LoginPage />
+      <div>
+        App page
+      </div>
     </>
   );
 }
