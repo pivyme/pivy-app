@@ -6,8 +6,8 @@ import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams } from 'react-router-dom'
-import { PublicKey, Transaction } from '@solana/web3.js'
-import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress } from '@solana/spl-token'
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { createAssociatedTokenAccountInstruction, createSyncNativeInstruction, getAssociatedTokenAddress, NATIVE_MINT } from '@solana/spl-token'
 import { buildPayTx } from '@/lib/pivy-stealth/pivy-stealth'
 
 export default function ReceivePage({
@@ -159,58 +159,78 @@ export default function ReceivePage({
   }, [connected])
 
   const [isPaying, setIsPaying] = useState(false)
+
   async function handlePay() {
     try {
-      setIsPaying(true)
-      /* 0. sanity checks ------------------------------------------------*/
-      // if (!wallet.connected) return toast.error('Connect wallet first');
-      // if (!stealthData) return toast.error('No link data');
+      setIsPaying(true);
 
-      const mint = new PublicKey(selectedToken.address);
-      const payerAta = await getAssociatedTokenAddress(mint, wallet.publicKey);
+      /* ─────────────────────────────────────────────────────────── */
+      const payingNative = selectedToken.isNative === true;
+      const mint = payingNative
+        ? NATIVE_MINT                          // So111…
+        : new PublicKey(selectedToken.address);
 
-      /* 1. prepend “ensure payer ATA” IX if missing -------------------- */
+      /* ATA of payer for chosen mint ---------------------------------- */
+      const payerAta = await getAssociatedTokenAddress(
+        mint,
+        wallet.publicKey,
+        true
+      );
+
       const ixes = [];
-      const info = await connection.getAccountInfo(payerAta);
-      if (!info) {
+
+      /* create payer ATA if missing */
+      if (!(await connection.getAccountInfo(payerAta))) {
         ixes.push(
           createAssociatedTokenAccountInstruction(
-            wallet.publicKey,      // funder
-            payerAta,
-            wallet.publicKey,      // owner
-            mint,
-          ),
+            wallet.publicKey, payerAta, wallet.publicKey, mint
+          )
         );
       }
 
-      /* 2. build stealth-pay IX --------------------------------------- */
-      const { tx } = await buildPayTx({
+      /* extra wrapping steps for native SOL --------------------------- */
+      if (payingNative) {
+        const lamports = Number(amount) * LAMPORTS_PER_SOL;
+        ixes.push(
+          SystemProgram.transfer({
+            fromPubkey: wallet.publicKey,
+            toPubkey: payerAta,
+            lamports,
+          }),
+          createSyncNativeInstruction(payerAta) // converts lamports→WSOL
+        );
+      }
+
+      /* build stealth-pay IX ----------------------------------------- */
+      const { tx: payTx } = await buildPayTx({
         connection,
         payerPubkey: wallet.publicKey,
         metaSpendPub: stealthData.metaSpendPub,
         metaViewPub: stealthData.metaViewPub,
-        amount: 1_000_000,          // 1 USDC
+        amount: payingNative            // units: lamports or μ-token
+          ? Number(amount) * LAMPORTS_PER_SOL
+          : Number(amount) * 1_000_000,       // 6-dec USDC
         label: 'personal',
         mint,
         payerAta,
         programId: new PublicKey('ECytFKSRMLkWYPp1jnnCEt8AcdnUeaLfKyfr16J3SgUk'),
       });
 
-      /* 3. merge everything & send ------------------------------------ */
-      const txFinal = new Transaction().add(...ixes, ...tx.instructions);
-      txFinal.feePayer = wallet.publicKey;
-      txFinal.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      /* merge and send ------------------------------------------------ */
+      const tx = new Transaction()
+        .add(...ixes, ...payTx.instructions);
+      tx.feePayer = wallet.publicKey;
+      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      const sig = await wallet.sendTransaction(txFinal, connection, {
-        skipPreflight: true,
+      const sig = await wallet.sendTransaction(tx, connection, {
+        skipPreflight: true,          // avoid false warning
       });
       await connection.confirmTransaction(sig, 'confirmed');
-      console.log('sig', sig)
-      // toast.success(`Paid ✓  ${sig.slice(0, 4)}…`);
-    } catch (error) {
-      console.log('error', error)
+      console.log('sig', sig);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setIsPaying(false)
+      setIsPaying(false);
     }
   }
 
