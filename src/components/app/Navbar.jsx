@@ -38,7 +38,7 @@ export default function Navbar() {
   };
 
   return (
-    <div className="w-full max-w-2xl z-50 fixed p-4 left-1/2 -translate-x-1/2 top-[1rem]">
+    <div className="w-full max-w-2xl z-50 fixed py-4 left-1/2 -translate-x-1/2 top-[1rem]">
       <div className="flex flex-row items-center justify-between bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 min-h-[4.5rem]">
         {connected ? (
           <>

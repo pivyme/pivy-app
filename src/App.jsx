@@ -6,6 +6,8 @@ import { ProtectedRoute } from "./providers/AuthProvider";
 import AppLayout from "./layouts/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import AppHomePage from "./pages/app/AppHomePage";
+import AppAlertPage from "./pages/app/AppAlertPage";
+import AppLinkPage from "./pages/app/AppLinkPage";
 
 // Helper function to check if we're on a subdomain
 const isSubdomain = () => {
@@ -49,6 +51,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <AppHomePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "links",
+        element: (
+          <ProtectedRoute>
+            <AppLinkPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "alerts",
+        element: (
+          <ProtectedRoute>
+            <AppAlertPage />
           </ProtectedRoute>
         ),
       },

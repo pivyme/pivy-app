@@ -6,6 +6,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect } from "react";
 import PolkadotBackground from "@/components/shared/PolkadotBackground";
+import BottomBar from "@/components/app/BottomBar";
 
 export default function AppLayout() {
   const { isSignedIn } = useAuth();
@@ -24,6 +25,7 @@ export default function AppLayout() {
       <DashboardProvider>
         <PolkadotBackground />
         <Navbar />
+        <BottomBar />
         <div className="light">
           <Outlet />
         </div>

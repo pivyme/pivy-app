@@ -10,6 +10,8 @@ import { useFirstMount } from '@/hooks/useFirstMount';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useDebounce } from '@uidotdev/usehooks';
 import { AnimatePresence, motion } from 'framer-motion';
+import FundsCard from '@/components/app/FundsCard';
+import ReceiveCard from '@/components/app/ReceiveCard';
 
 export default function AppHomePage() {
   const { connected, connecting } = useWallet();
@@ -54,8 +56,31 @@ export default function AppHomePage() {
 
 const AppDashboard = () => {
   return (
-    <div>
-      <h1>App Dashboard</h1>
+    <div className='flex flex-col gap-12'>
+      {/* Receive */}
+      <AnimateComponent>
+        <div>
+          <h1 className='font-bold tracking-tight text-2xl mb-2'>Receive</h1>
+          <ReceiveCard />
+        </div>
+      </AnimateComponent>
+
+      {/* Funds */}
+      <AnimateComponent delay={200}>
+        <div>
+          <h1 className='font-bold tracking-tight text-2xl mb-2'>Funds</h1>
+          <FundsCard />
+        </div>
+      </AnimateComponent>
+
+      {/* Activity */}
+      <AnimateComponent delay={400}>
+        <div>
+          <h1 className='font-bold tracking-tight text-2xl mb-2'>Activity</h1>
+          <FundsCard />
+        </div>
+      </AnimateComponent>
+
     </div>
   )
 }

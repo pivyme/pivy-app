@@ -1,7 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export default function ReceivePage() {
+
   return (
-    <div>ReceivePage</div>
+    <div className=''>
+      Receive Page
+    </div>
   )
 }
