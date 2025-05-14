@@ -1,11 +1,14 @@
 import { cnm } from '@/utils/style'
 import { Button, Autocomplete, AutocompleteItem, Avatar } from '@heroui/react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams } from 'react-router-dom'
+import { PublicKey, Transaction } from '@solana/web3.js'
+import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress } from '@solana/spl-token'
+import { buildPayTx } from '@/lib/pivy-stealth/pivy-stealth'
 
 export default function ReceivePage({
   username: propUsername,
@@ -18,6 +21,7 @@ export default function ReceivePage({
   const tag = propTag || params.tag || ""
 
   const wallet = useWallet()
+  const { connection } = useConnection()
   const { connected, connecting, publicKey } = wallet
   const { setVisible, visible } = useWalletModal();
 
@@ -154,15 +158,60 @@ export default function ReceivePage({
     }
   }, [connected])
 
-  const handlePay = () => {
-    console.log('Pay button clicked')
-    const data = {
-      amount: amount,
-      token: selectedToken.address,
-      stealthData: stealthData
-    }
+  const [isPaying, setIsPaying] = useState(false)
+  async function handlePay() {
+    try {
+      setIsPaying(true)
+      /* 0. sanity checks ------------------------------------------------*/
+      // if (!wallet.connected) return toast.error('Connect wallet first');
+      // if (!stealthData) return toast.error('No link data');
 
-    console.log('data', data)
+      const mint = new PublicKey(selectedToken.address);
+      const payerAta = await getAssociatedTokenAddress(mint, wallet.publicKey);
+
+      /* 1. prepend “ensure payer ATA” IX if missing -------------------- */
+      const ixes = [];
+      const info = await connection.getAccountInfo(payerAta);
+      if (!info) {
+        ixes.push(
+          createAssociatedTokenAccountInstruction(
+            wallet.publicKey,      // funder
+            payerAta,
+            wallet.publicKey,      // owner
+            mint,
+          ),
+        );
+      }
+
+      /* 2. build stealth-pay IX --------------------------------------- */
+      const { tx } = await buildPayTx({
+        connection,
+        payerPubkey: wallet.publicKey,
+        metaSpendPub: stealthData.metaSpendPub,
+        metaViewPub: stealthData.metaViewPub,
+        amount: 1_000_000,          // 1 USDC
+        label: 'personal',
+        mint,
+        payerAta,
+        programId: new PublicKey('ECytFKSRMLkWYPp1jnnCEt8AcdnUeaLfKyfr16J3SgUk'),
+      });
+
+      /* 3. merge everything & send ------------------------------------ */
+      const txFinal = new Transaction().add(...ixes, ...tx.instructions);
+      txFinal.feePayer = wallet.publicKey;
+      txFinal.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+      const sig = await wallet.sendTransaction(txFinal, connection, {
+        skipPreflight: true,
+      });
+      await connection.confirmTransaction(sig, 'confirmed');
+      console.log('sig', sig)
+      // toast.success(`Paid ✓  ${sig.slice(0, 4)}…`);
+    } catch (error) {
+      console.log('error', error)
+    } finally {
+      setIsPaying(false)
+    }
   }
 
   return (
@@ -174,8 +223,8 @@ export default function ReceivePage({
             {connected && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ 
-                  height: 'auto', 
+                animate={{
+                  height: 'auto',
                   opacity: 1,
                   transition: {
                     height: {
@@ -190,8 +239,8 @@ export default function ReceivePage({
                     }
                   }
                 }}
-                exit={{ 
-                  height: 0, 
+                exit={{
+                  height: 0,
                   opacity: 0,
                   transition: {
                     height: {
@@ -205,7 +254,7 @@ export default function ReceivePage({
               >
                 <motion.div
                   initial={{ y: 20 }}
-                  animate={{ 
+                  animate={{
                     y: 0,
                     transition: {
                       type: "spring",
@@ -215,7 +264,7 @@ export default function ReceivePage({
                       delay: 0.1
                     }
                   }}
-                  exit={{ 
+                  exit={{
                     y: 20,
                     transition: {
                       type: "spring",
@@ -230,7 +279,7 @@ export default function ReceivePage({
                     <div className='text-sm text-gray-500 flex items-center gap-2'>
                       <motion.div
                         initial={{ scale: 0 }}
-                        animate={{ 
+                        animate={{
                           scale: 1,
                           transition: {
                             type: "spring",
@@ -404,8 +453,10 @@ export default function ReceivePage({
                   size='md'
                   color='primary'
                   onPress={handlePay}
+                  isLoading={isPaying}
+                  isDisabled={isPaying}
                 >
-                  PAY!
+                  {isPaying ? 'Paying...' : 'PAY!'}
                 </Button>
               </div>
             ) : (
