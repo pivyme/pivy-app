@@ -13,12 +13,12 @@ export default function AppLayout() {
   const { connected } = useWallet();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Only redirect if we're sure the user is not authenticated
-    if (!connected && !isSignedIn) {
-      navigate("/app/login");
-    }
-  }, [connected, isSignedIn, navigate]);
+  // useEffect(() => {
+  //   // Only redirect if we're sure the user is not authenticated
+  //   if (!connected && !isSignedIn) {
+  //     navigate("/app/login");
+  //   }
+  // }, [connected, isSignedIn, navigate]);
 
   return (
     <AppWalletProvider>

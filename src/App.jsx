@@ -8,6 +8,8 @@ import LoginPage from "./pages/LoginPage";
 import AppHomePage from "./pages/app/AppHomePage";
 import AppAlertPage from "./pages/app/AppAlertPage";
 import AppLinkPage from "./pages/app/AppLinkPage";
+import ReceivePage from "./pages/ReceivePage";
+import ReceiveLayout from "./layouts/ReceiveLayout";
 
 // Helper function to check if we're on a subdomain
 const isSubdomain = () => {
@@ -31,15 +33,25 @@ const getSubdomainUsername = () => {
     : null;
 };
 
+// Extract tag from path for subdomain routes
+const getTagFromPath = () => {
+  const pathname = window.location.pathname;
+  return pathname.startsWith('/') ? pathname.slice(1) : pathname;
+};
+
 const router = createBrowserRouter([
   {
     path: "/",
-    element: isSubdomain() ? <IndexLayout /> : <IndexPage />,
+    element: isSubdomain() ? <ReceiveLayout /> : <IndexLayout />,
     children: isSubdomain() ? [
       {
         path: "",
-        element: <IndexPage username={getSubdomainUsername() || "jordan"} />,
+        element: <ReceivePage username={getSubdomainUsername()} />,
       },
+      {
+        path: ":tag",
+        element: <ReceivePage username={getSubdomainUsername()} tag={getTagFromPath()} />,
+      }
     ] : undefined,
   },
   {
@@ -74,15 +86,31 @@ const router = createBrowserRouter([
         path: "login",
         element: <LoginPage />,
       },
+    ],
+  },
+  {
+    path: "/app/receive/:username",
+    element: <ReceiveLayout />,
+    children: [
       {
-        path: "receive/:username",
-        element: <IndexPage />,
+        path: "",
+        element: <ReceivePage />,
       },
+      {
+        path: ":tag",
+        element: <ReceivePage />,
+      }
     ],
   },
   {
     path: "*",
-    element: <IndexPage />,
+    element: <ReceiveLayout />,
+    children: [
+      {
+        path: "",
+        element: <ReceivePage />,
+      },
+    ],
   },
 ]);
 

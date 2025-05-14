@@ -52,7 +52,7 @@ export default function PolkadotBackground() {
           initial={{ scale: 0.8, opacity: 0.1 }}
           animate={{
             scale: [0.8, 1, 0.8],
-            opacity: [0.1, 0.8, 0.1],
+            opacity: [0.2, 1, 0.2],
             y: [0, -8, 0],
           }}
           transition={{
