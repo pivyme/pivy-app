@@ -10,6 +10,7 @@ import AnimateComponent from '@/components/elements/AnimateComponent'
 import { SparklesIcon } from 'lucide-react'
 import PayButton from '@/components/app/PayButton'
 import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
+import BounceButton from '@/components/elements/BounceButton'
 
 export default function ReceivePage({
   username: propUsername,
@@ -735,7 +736,7 @@ export default function ReceivePage({
                 </div>
               ) : (
                 <AnimateComponent delay={400} className='w-full'>
-                  <Button
+                  <BounceButton
                     className='tracking-tight font-semibold px-8 py-6 text-lg w-full'
                     radius='full'
                     size='md'
@@ -746,7 +747,7 @@ export default function ReceivePage({
                     }}
                   >
                     Connect Wallet to continue
-                  </Button>
+                  </BounceButton>
                 </AnimateComponent>
               )}
               <AnimateComponent delay={700}>

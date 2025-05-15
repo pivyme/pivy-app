@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { HomeIcon, LinkIcon, BellIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@heroui/react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import BounceButton from '@/components/elements/BounceButton'
 
 const NavItem = ({ href, icon, label, activeColor, pillColor, isActive }) => (
   <Link to={href} className='relative'>
@@ -33,21 +34,21 @@ const NAVIGATION_ITEMS = [
   {
     label: 'Home',
     icon: <HomeIcon className='w-5 h-5' />,
-    href: '/app',
+    href: '/',
     activeColor: 'text-primary-600',
     pillColor: 'bg-primary-100'
   },
   {
     label: 'Links',
     icon: <LinkIcon className='w-5 h-5' />,
-    href: '/app/links',
+    href: '/links',
     activeColor: 'text-secondary-600',
     pillColor: 'bg-secondary-50'
   },
   {
     label: 'Alerts',
     icon: <BellIcon className='w-5 h-5' />,
-    href: '/app/alerts',
+    href: '/alerts',
     activeColor: 'text-warning-600',
     pillColor: 'bg-warning-50'
   },
@@ -58,7 +59,7 @@ export default function BottomBar({
   setIsCreateLinkModalOpen
 }) {
   const location = useLocation()
-  const shouldShow = ['/app', '/app/links', '/app/alerts'].includes(location.pathname)
+  const shouldShow = ['/', '/links', '/alerts'].includes(location.pathname)
 
   return (
     <AnimatePresence mode="wait">
@@ -85,15 +86,13 @@ export default function BottomBar({
                   />
                 ))}
 
-                <Button
-                  className="bg-[#333333] text-white font-semibold tracking-tight px-6"
-                  radius="full"
-                  size="lg"
+                <BounceButton
+                  className="bg-[#333333] text-white font-semibold tracking-tight px-6 shadow-lg hover:shadow-xl transition-shadow"
                   startContent={<PlusIcon className="w-5 h-5" />}
                   onPress={() => setIsCreateLinkModalOpen(true)}
                 >
                   Create Link
-                </Button>
+                </BounceButton>
               </div>
             </div>
           </div>

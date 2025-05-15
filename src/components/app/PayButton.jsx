@@ -6,6 +6,7 @@ import { createAssociatedTokenAccountInstruction, createSyncNativeInstruction, g
 import { buildPayTx } from '@/lib/pivy-stealth/pivy-stealth'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
+import BounceButton from '@/components/elements/BounceButton'
 
 export default function PayButton({ 
   selectedToken,
@@ -146,7 +147,7 @@ export default function PayButton({
           </a>
 
           {stealthData?.linkData?.type === 'DOWNLOAD' && stealthData?.linkData?.file && (
-            <Button
+            <BounceButton
               className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
               radius="full"
               size="lg"
@@ -157,7 +158,7 @@ export default function PayButton({
               startContent={<DownloadIcon className="w-5 h-5" />}
             >
               Download File
-            </Button>
+            </BounceButton>
           )}
         </motion.div>
       </motion.div>
@@ -165,7 +166,7 @@ export default function PayButton({
   }
 
   return (
-    <Button
+    <BounceButton
       className={`tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full ${className || ''}`}
       radius='full'
       size='lg'
@@ -178,6 +179,6 @@ export default function PayButton({
           ? '🎁 Pay & Download' 
           : '💰 Pay'
       )}
-    </Button>
+    </BounceButton>
   )
 }

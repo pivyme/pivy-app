@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
 
   const handleSignIn = useCallback(async () => {
     if (!connected || !publicKey || !signMessage) {
-      navigate("/app/login");
+      navigate("/login");
       return;
     }
 
@@ -121,10 +121,10 @@ export function AuthProvider({ children }) {
       );
 
       setAccessToken(response.data);
-      navigate("/app");
+      navigate("/");
     } catch (error) {
       console.error("Sign in error:", error);
-      navigate("/app/login");
+      navigate("/login");
     }
   }, [connected, publicKey, signMessage, navigate]);
 
@@ -166,7 +166,7 @@ export function ProtectedRoute({ children }) {
 
   useEffect(() => {
     if (!connected || !isSignedIn) {
-      navigate("/app/login");
+      navigate("/login");
     }
   }, [connected, isSignedIn, navigate]);
 

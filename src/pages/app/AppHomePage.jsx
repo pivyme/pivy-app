@@ -12,6 +12,7 @@ import { useDebounce } from '@uidotdev/usehooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import FundsCard from '@/components/app/FundsCard';
 import ReceiveCard from '@/components/app/ReceiveCard';
+import { RESTRICTED_USERNAME } from '@/config';
 
 export default function AppHomePage() {
   const { connected, connecting } = useWallet();
@@ -38,7 +39,7 @@ export default function AppHomePage() {
 
   if (!connected) {
     console.log("not connected or signed in");
-    return <Navigate to={"/app/login"} replace />;
+    return <Navigate to={"/login"} replace />;
   }
 
   return (
@@ -92,6 +93,19 @@ const Onboarding = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState(null);
+  const [validationError, setValidationError] = useState(null);
+
+  // Force lowercase and validate input
+  const handleUsernameChange = (value) => {
+    const lowercaseValue = value.toLowerCase();
+    // Only allow alphanumeric characters
+    if (lowercaseValue !== '' && !/^[a-z0-9]+$/.test(lowercaseValue)) {
+      setValidationError("Only letters and numbers are allowed");
+      return;
+    }
+    setValidationError(null);
+    setUsername(lowercaseValue);
+  };
 
   const debouncedUsername = useDebounce(username, 500);
 
@@ -100,6 +114,12 @@ const Onboarding = () => {
     const checkUsername = async () => {
       if (!debouncedUsername) {
         setIsAvailable(null);
+        return;
+      }
+
+      // Check against restricted usernames first
+      if (RESTRICTED_USERNAME.includes(debouncedUsername)) {
+        setIsAvailable(false);
         return;
       }
 
@@ -137,7 +157,7 @@ const Onboarding = () => {
       );
 
       await fetchMe();
-      navigate("/app");
+      navigate("/");
     } catch (error) {
       console.error("Error setting username:", error);
     } finally {
@@ -146,6 +166,13 @@ const Onboarding = () => {
   };
 
   const getStatusContent = () => {
+    if (validationError) {
+      return {
+        text: validationError,
+        icon: <XCircleIcon className="w-4 h-4" />,
+        color: "bg-danger-100 text-danger-600"
+      };
+    }
     if (!username) {
       return {
         text: "Choose a username",
@@ -165,6 +192,13 @@ const Onboarding = () => {
         text: "Checking availability...",
         icon: <Spinner size="sm" color='secondary' />,
         color: "bg-secondary-50 text-secondary-600"
+      };
+    }
+    if (RESTRICTED_USERNAME.includes(username)) {
+      return {
+        text: "This username is not allowed",
+        icon: <XCircleIcon className="w-4 h-4" />,
+        color: "bg-danger-100 text-danger-600"
       };
     }
     if (isAvailable) {
@@ -209,7 +243,7 @@ const Onboarding = () => {
                 size="lg"
                 type="text"
                 value={username}
-                onValueChange={setUsername}
+                onValueChange={handleUsernameChange}
                 endContent={
                   <span className="p-2 mt-1 rounded-xl bg-primary font-medium text-sm -mr-1">
                     .pivy.me

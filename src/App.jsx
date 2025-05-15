@@ -1,7 +1,6 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import RootProvider from "./providers/RootProvider";
 import IndexLayout from "./layouts/IndexLayout";
-import IndexPage from "./pages/IndexPage";
 import { ProtectedRoute } from "./providers/AuthProvider";
 import AppLayout from "./layouts/AppLayout";
 import LoginPage from "./pages/LoginPage";
@@ -42,20 +41,6 @@ const getTagFromPath = () => {
 const router = createBrowserRouter([
   {
     path: "/",
-    element: isSubdomain() ? <ReceiveLayout /> : <IndexLayout />,
-    children: isSubdomain() ? [
-      {
-        path: "",
-        element: <ReceivePage username={getSubdomainUsername()} />,
-      },
-      {
-        path: ":tag",
-        element: <ReceivePage username={getSubdomainUsername()} tag={getTagFromPath()} />,
-      }
-    ] : undefined,
-  },
-  {
-    path: "/app",
     element: <AppLayout />,
     children: [
       {
@@ -89,7 +74,7 @@ const router = createBrowserRouter([
     ],
   },
   {
-    path: "/app/receive/:username",
+    path: "/:username",
     element: <ReceiveLayout />,
     children: [
       {
@@ -100,16 +85,6 @@ const router = createBrowserRouter([
         path: ":tag",
         element: <ReceivePage />,
       }
-    ],
-  },
-  {
-    path: "*",
-    element: <ReceiveLayout />,
-    children: [
-      {
-        path: "",
-        element: <ReceivePage />,
-      },
     ],
   },
 ]);

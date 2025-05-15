@@ -17,11 +17,14 @@ export default function AppLayout() {
   // useEffect(() => {
   //   // Only redirect if we're sure the user is not authenticated
   //   if (!connected && !isSignedIn) {
-  //     navigate("/app/login");
+  //     navigate("/login");
   //   }
   // }, [connected, isSignedIn, navigate]);
 
   const [isCreateLinkModalOpen, setIsCreateLinkModalOpen] = useState(false)
+  console.log({
+    isCreateLinkModalOpen
+  })
 
   return (
     <AppWalletProvider>
@@ -33,7 +36,7 @@ export default function AppLayout() {
           setIsCreateLinkModalOpen={setIsCreateLinkModalOpen}
         />
         <CreateLinkModal
-          isOpen={isCreateLinkModalOpen}
+          open={isCreateLinkModalOpen}
           onClose={() => setIsCreateLinkModalOpen(false)}
         />
         <div className="light">
