@@ -6,7 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { Header, Payload, SIWS } from "@web3auth/sign-in-with-solana";
 import { useLocalStorage } from "@uidotdev/usehooks";
@@ -43,6 +43,7 @@ const AuthContext = createContext({
   signOut: () => {},
   me: null,
   fetchMe: () => {},
+  isLoading: true,
 });
 
 export function AuthProvider({ children }) {
@@ -55,12 +56,15 @@ export function AuthProvider({ children }) {
     null
   );
   const [me, setMe] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { connected, publicKey, signMessage, signIn, disconnect } = useWallet();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchMe = useCallback(async () => {
     if (!accessToken) {
       setMe(null);
+      setIsLoading(false);
       return;
     }
 
@@ -77,6 +81,8 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error("Failed to fetch user data:", error);
       signOut();
+    } finally {
+      setIsLoading(false);
     }
   }, [accessToken]);
 
@@ -96,7 +102,7 @@ export function AuthProvider({ children }) {
 
   const handleSignIn = useCallback(async () => {
     if (!connected || !publicKey || !signMessage) {
-      navigate("/login");
+      navigate("/login", { state: { from: location.pathname } });
       return;
     }
 
@@ -121,19 +127,22 @@ export function AuthProvider({ children }) {
       );
 
       setAccessToken(response.data);
-      navigate("/");
+      // Navigate back to the original route or default to home
+      const from = location.state?.from || "/";
+      navigate(from, { replace: true });
     } catch (error) {
       console.error("Sign in error:", error);
       navigate("/login");
     }
-  }, [connected, publicKey, signMessage, navigate]);
+  }, [connected, publicKey, signMessage, navigate, location]);
 
   const signOut = useCallback(() => {
     setAccessToken(null);
     setLastConnectedAddress(null);
     disconnect();
     setMe(null);
-  }, [setAccessToken, setLastConnectedAddress]);
+    navigate("/login");
+  }, [setAccessToken, setLastConnectedAddress, disconnect, navigate]);
 
   return (
     <AuthContext.Provider
@@ -144,6 +153,7 @@ export function AuthProvider({ children }) {
         signOut,
         me,
         fetchMe,
+        isLoading,
       }}
     >
       {children}
@@ -161,18 +171,28 @@ export function useAuth() {
 
 export function ProtectedRoute({ children }) {
   const { connected } = useWallet();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!connected || !isSignedIn) {
-      navigate("/login");
+    if (!isLoading && (!connected || !isSignedIn)) {
+      navigate("/login", { 
+        state: { from: location.pathname },
+        replace: true 
+      });
     }
-  }, [connected, isSignedIn, navigate]);
+  }, [connected, isSignedIn, navigate, location, isLoading]);
 
-  if (!connected || !isSignedIn) {
+  // Show nothing while checking authentication
+  if (isLoading) {
     return null;
   }
 
-  return <>{children}</>;
+  // Show children only if authenticated
+  if (connected && isSignedIn) {
+    return <>{children}</>;
+  }
+
+  return null;
 }

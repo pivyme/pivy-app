@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Button, Input, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react'
-import { LinkIcon, FileIcon, XIcon } from 'lucide-react'
+import { Button, Input, Popover, PopoverTrigger, PopoverContent, DropdownItem, DropdownMenu, Dropdown, DropdownTrigger } from '@heroui/react'
+import { LinkIcon, FileIcon, XIcon, SmileIcon, PaintbrushIcon } from 'lucide-react'
 import { CHAINS } from '@/config'
 import axios from 'axios'
 import { useAuth } from '@/providers/AuthProvider'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
+import { sleep } from '@/utils/process'
+import { COLORS } from '@/config'
 
 const slugify = (text) => {
   return text
@@ -29,6 +31,9 @@ export default function CreateLinkModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [linkType, setLinkType] = useState(null)
   const [linkName, setLinkName] = useState('')
+  const [selectedEmoji, setSelectedEmoji] = useState('🔗')
+  const [selectedColor, setSelectedColor] = useState('gray')
+  const [customizePopoverOpen, setCustomizePopoverOpen] = useState(false)
   const [amountType, setAmountType] = useState(null)
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
@@ -39,6 +44,17 @@ export default function CreateLinkModal({
   const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
   const networkTokens = isTestnet ? CHAINS.DEVNET.tokens : CHAINS.MAINNET.tokens
   const [selectedToken, setSelectedToken] = useState(networkTokens[0])
+
+  // Predefined emojis and colors
+  const emojis = ['🔗', '💫', '🌟', '✨', '💎', '🎯', '🎨', '🎭', '🎪', '🎢', '🎡', '🎠', '🎮', '🎲', '🎰', '��']
+  const colors = COLORS.map(color => ({
+    id: color.id,
+    value: color.light
+  }))
+
+  const getColorValue = (colorId) => {
+    return colors.find(c => c.id === colorId)?.value || colors[0].value
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -51,6 +67,8 @@ export default function CreateLinkModal({
       formData.append('type', linkType)
       formData.append('name', linkName)
       formData.append('slug', slugify(linkName))
+      formData.append('emoji', selectedEmoji)
+      formData.append('backgroundColor', selectedColor)
       formData.append('amountType', amountType)
       if (amountType === 'fixed') {
         formData.append('amount', amount)
@@ -78,17 +96,32 @@ export default function CreateLinkModal({
         }
       )
 
-      console.log(response.data)
-
       // Close modal and navigate to links page
       onClose()
-      navigate('/app/links')
+      navigate('/links')
+
+      handleResetForm()
+
+      // Reset 
     } catch (error) {
       console.error('Failed to create link:', error)
       // TODO: Show error toast
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleResetForm = async () => {
+    await sleep(300)
+    setLinkType(null)
+    setLinkName('')
+    setSelectedEmoji('🔗')
+    setSelectedColor('gray')
+    setAmountType(null)
+    setAmount('')
+    setDescription('')
+    setFile(null)
+    setIsSubmitting(false)
   }
 
   useEffect(() => {
@@ -204,17 +237,80 @@ export default function CreateLinkModal({
                 onSubmit={handleSubmit} 
                 className='space-y-6'
               >
-                {/* Link Name */}
+                {/* Link Name and Customization */}
                 <div className='space-y-2'>
-                  <label className='text-lg font-semibold tracking-tight'>Link Name</label>
-                  <Input
-                    placeholder="e.g., design-project"
-                    value={linkName}
-                    onChange={(e) => setLinkName(e.target.value)}
-                    size='lg'
-                    className='text-base'
-                    variant='bordered'
-                  />
+                  <label className='text-lg font-semibold tracking-tight'>Link Name & Style</label>
+                  <div className='flex gap-2'>
+                    {/* Combined Emoji and Color Picker */}
+                    <Popover 
+                      isOpen={customizePopoverOpen}
+                      onOpenChange={setCustomizePopoverOpen}
+                    >
+                      <PopoverTrigger>
+                        <Button
+                          variant="bordered"
+                          isIconOnly
+                          size='lg'
+                          className="aspect-square p-0 border border-black/10 overflow-hidden"
+                          style={{
+                            borderRadius: '100%',
+                            backgroundColor: getColorValue(selectedColor)
+                          }}
+                        >
+                          <span className="text-2xl">{selectedEmoji}</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-fit">
+                        <div className="p-4 space-y-4">
+                          {/* Emoji Grid */}
+                          <div>
+                            <div className="text-sm font-medium mb-2">Choose Emoji</div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {emojis.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => setSelectedEmoji(emoji)}
+                                  className={`flex items-center justify-center p-2 rounded-lg hover:bg-black/5 transition-colors ${
+                                    selectedEmoji === emoji ? 'ring-2 ring-black' : ''
+                                  }`}
+                                >
+                                  <span className="text-2xl">{emoji}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Color Grid */}
+                          <div>
+                            <div className="text-sm font-medium mb-2">Choose Color</div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {colors.map((color) => (
+                                <button
+                                  key={color.id}
+                                  type="button"
+                                  onClick={() => setSelectedColor(color.id)}
+                                  className={`w-12 h-12 rounded-lg transition-all ${
+                                    selectedColor === color.id ? 'ring-2 ring-black scale-95' : 'hover:scale-95'
+                                  }`}
+                                  style={{ backgroundColor: color.value }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
+                    <Input
+                      placeholder="e.g., design-project"
+                      value={linkName}
+                      onChange={(e) => setLinkName(e.target.value)}
+                      size='lg'
+                      className='text-base flex-1'
+                      variant='bordered'
+                    />
+                  </div>
                   <div className='text-sm text-gray-500'>
                     Your payment URL: {linkName && <span className='font-medium text-primary-600'>{`https://pivy.me/receive/${slugify(linkName)}`}</span>}
                   </div>

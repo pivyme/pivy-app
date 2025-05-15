@@ -11,6 +11,7 @@ import { SparklesIcon } from 'lucide-react'
 import PayButton from '@/components/app/PayButton'
 import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
 import BounceButton from '@/components/elements/BounceButton'
+import ColorCard from '@/components/elements/ColorCard'
 
 export default function ReceivePage({
   username: propUsername,
@@ -51,7 +52,7 @@ export default function ReceivePage({
 
         // Create a minimum loading time promise
         const minimumLoadingTime = new Promise(resolve => 
-          setTimeout(resolve, 2000)
+          setTimeout(resolve, 0)
         );
 
         // Fetch data promise
@@ -67,6 +68,7 @@ export default function ReceivePage({
             throw new Error("User not found")
           }
 
+          console.log('stealthResponse', stealthResponse.data)
           setStealthData(stealthResponse.data)
 
           // If wallet is connected, fetch balances
@@ -304,17 +306,40 @@ export default function ReceivePage({
                 </a>
 
                 {stealthData?.linkData?.type === 'DOWNLOAD' && stealthData?.linkData?.file && (
-                  <Button
+                  <BounceButton
                     className="w-full tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm"
                     radius="full"
                     size="lg"
-                    onPress={() => {
-                      // Handle download here
-                      console.log('Downloading file:', stealthData.linkData.file)
+                    onPress={async () => {
+                      try {
+                        // Call the download endpoint with the transaction signature
+                        const response = await axios.get(
+                          `${import.meta.env.VITE_BACKEND_URL}/link/file/${stealthData.linkData.file.id}`,
+                          {
+                            params: { txHash: signature },
+                            responseType: 'blob'
+                          }
+                        )
+
+                        // Create a blob URL and trigger download
+                        const blob = new Blob([response.data])
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = stealthData.linkData.file.filename
+                        document.body.appendChild(a)
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                        document.body.removeChild(a)
+                      } catch (error) {
+                        console.error('Error downloading file:', error)
+                        // You might want to show an error message to the user here
+                      }
                     }}
+                    startContent={<DownloadIcon className="w-5 h-5" />}
                   >
                     🎁 Download File
-                  </Button>
+                  </BounceButton>
                 )}
               </div>
             </div>
@@ -398,7 +423,7 @@ export default function ReceivePage({
             <PaymentSuccessView paymentDetails={paymentSuccess} />
           </div>
         ) : (
-          <div className='nice-card bg-gradient-to-br bg-background-500 p-0 w-full flex flex-col overflow-hidden'>
+          <ColorCard color="pink" className='nice-card bg-gradient-to-br bg-background-500 p-4 w-full flex flex-col overflow-hidden'>
             <AnimatePresence>
               {connected && (
                 <motion.div
@@ -756,7 +781,7 @@ export default function ReceivePage({
                 </div>
               </AnimateComponent>
             </div>
-          </div>
+          </ColorCard>
         )}
       </div>
     </div>

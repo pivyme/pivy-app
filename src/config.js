@@ -14,6 +14,18 @@ export const CONFIG = {
   TELEGRAM_LINK: "",
 };
 
+export const COLORS = [
+  { id: 'blue', value: '#60A5FA', light: '#DBEAFE' },
+  { id: 'purple', value: '#A78BFA', light: '#EDE9FE' },
+  { id: 'pink', value: '#F472B6', light: '#FCE7F3' },
+  { id: 'green', value: '#34D399', light: '#D1FAE5' },
+  { id: 'yellow', value: '#FBBF24', light: '#FEF3C7' },
+  { id: 'red', value: '#F87171', light: '#FEE2E2' },
+  { id: 'orange', value: '#FB923C', light: '#FFEDD5' },
+  { id: 'teal', value: '#2DD4BF', light: '#CCFBF1' },
+  { id: 'gray', value: '#6B7280', light: '#E5E7EB' },
+]
+
 export const CHAINS = {
   MAINNET: {
     id: "MAINNET",

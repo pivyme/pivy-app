@@ -7,6 +7,7 @@ import { buildPayTx } from '@/lib/pivy-stealth/pivy-stealth'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
 import BounceButton from '@/components/elements/BounceButton'
+import axios from 'axios'
 
 export default function PayButton({ 
   selectedToken,
@@ -151,9 +152,31 @@ export default function PayButton({
               className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
               radius="full"
               size="lg"
-              onPress={() => {
-                // Handle download here
-                console.log('Downloading file:', stealthData.linkData.file)
+              onPress={async () => {
+                try {
+                  // Call the download endpoint with the transaction signature
+                  const response = await axios.get(
+                    `${import.meta.env.VITE_BACKEND_URL}/link/file/${stealthData.linkData.file.id}`,
+                    {
+                      params: { txHash: transactionSignature },
+                      responseType: 'blob'
+                    }
+                  )
+
+                  // Create a blob URL and trigger download
+                  const blob = new Blob([response.data])
+                  const url = window.URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = stealthData.linkData.file.filename
+                  document.body.appendChild(a)
+                  a.click()
+                  window.URL.revokeObjectURL(url)
+                  document.body.removeChild(a)
+                } catch (error) {
+                  console.error('Error downloading file:', error)
+                  // You might want to show an error message to the user here
+                }
               }}
               startContent={<DownloadIcon className="w-5 h-5" />}
             >
