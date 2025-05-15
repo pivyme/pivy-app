@@ -1,53 +1,40 @@
-import { cnm } from '@/utils/style'
-import { Button, Autocomplete, AutocompleteItem, Avatar } from '@heroui/react'
-import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { Button, Autocomplete, AutocompleteItem } from '@heroui/react'
+import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams } from 'react-router-dom'
-import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
-import { createAssociatedTokenAccountInstruction, createSyncNativeInstruction, getAssociatedTokenAddress, NATIVE_MINT } from '@solana/spl-token'
-import { buildPayTx } from '@/lib/pivy-stealth/pivy-stealth'
+import { NATIVE_MINT } from '@solana/spl-token'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { SparklesIcon } from 'lucide-react'
+import PayButton from '@/components/app/PayButton'
+import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
 
 export default function ReceivePage({
   username: propUsername,
   tag: propTag
 }) {
-  console.log('ReceivePage rendered')
-
   const params = useParams()
   const username = propUsername || params.username
   const tag = propTag || params.tag || ""
 
   const wallet = useWallet()
-  const { connection } = useConnection()
   const { connected, connecting, publicKey } = wallet
-  const { setVisible, visible } = useWalletModal();
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [stealthData, setStealthData] = useState(null)
+  const { setVisible } = useWalletModal();
 
   const [isInitializing, setIsInitializing] = useState(true)
+  const [error, setError] = useState(null)
+  const [stealthData, setStealthData] = useState(null)
+  const [paymentSuccess, setPaymentSuccess] = useState(null)
 
   useEffect(() => {
     console.log('Wallet state changed:', {
       connected,
       connecting,
       publicKey: publicKey?.toString(),
-      visible
     })
-  }, [connected, connecting, publicKey, visible])
-
-  // {
-  //   "username": "test",
-  //   "tag": "",
-  //   "metaSpendPub": "CZG7aBVtN1XKNXyjAYB1yxu4A5ERptcLcYWJU3F97A4A",
-  //   "metaViewPub": "FticuBpPpRfAWh1rbtmGuuhHvuUnT2qNHYSStaWzJCZU"
-  // }
+  }, [connected, connecting, publicKey])
 
   useEffect(() => {
     let mounted = true
@@ -115,14 +102,6 @@ export default function ReceivePage({
     }
   }, [username, tag, connected, wallet.publicKey])
 
-  useEffect(() => {
-    if (stealthData) {
-      console.log('stealthData', stealthData)
-    }
-  }, [stealthData])
-
-  console.log('connected', connected)
-
   // Token Balances
   const [tokenBalances, setTokenBalances] = useState(null)
   const [selectedToken, setSelectedToken] = useState(null)
@@ -137,7 +116,7 @@ export default function ReceivePage({
         isNative: true,
         amount: token.amount,
         decimals: token.decimals,
-        address: 'native', // Native SOL doesn't have a token address
+        address: 'native',
         imageUrl: token.imageUrl,
         name: token.name,
         symbol: token.symbol
@@ -155,13 +134,12 @@ export default function ReceivePage({
     };
   };
 
-  // New function to normalize fixed token data
   const normalizeFixedTokenData = (tokenInfo) => {
     return {
-      isNative: tokenInfo.mintAddress === NATIVE_MINT.toString(),
-      amount: 0, // We don't know the balance yet
+      isNative: tokenInfo.address === NATIVE_MINT.toString(),
+      amount: 0,
       decimals: tokenInfo.decimals,
-      address: tokenInfo.mintAddress,
+      address: tokenInfo.address,
       imageUrl: tokenInfo.imageUrl,
       name: tokenInfo.name,
       symbol: tokenInfo.symbol
@@ -218,7 +196,6 @@ export default function ReceivePage({
     if (connected) {
       handleFetchTokenBalances()
     } else {
-      // Reset states when disconnected
       setTokenBalances(null)
       setSelectedToken(null)
       setTokenSearchValue("")
@@ -226,81 +203,142 @@ export default function ReceivePage({
     }
   }, [connected, stealthData])
 
-  const [isPaying, setIsPaying] = useState(false)
+  const PaymentSuccessView = ({ paymentDetails }) => {
+    const { signature, amount, token, timestamp } = paymentDetails;
+    
+    return (
+      <AnimateComponent>
+        <div className='nice-card p-8 w-full flex flex-col items-center'>
+          {/* Success Animation */}
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 20,
+            }}
+            className="mb-6"
+          >
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <CheckCircle2Icon className="w-12 h-12 text-green-500" />
+              </motion.div>
+            </div>
+          </motion.div>
 
-  async function handlePay() {
-    try {
-      setIsPaying(true);
+          {/* Receipt Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="w-full"
+          >
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* Receipt Header */}
+              <div className="px-6 py-5 border-b border-gray-100 text-center relative">
+                <div className="absolute left-0 right-0 -bottom-1 h-1 bg-gradient-to-r from-primary-100 via-primary-500 to-primary-100 opacity-50" />
+                <h2 className="text-2xl font-bold text-gray-900">Payment Complete 🎉</h2>
+                <p className="text-gray-600 mt-1">
+                  {new Date(timestamp).toLocaleDateString()} at {new Date(timestamp).toLocaleTimeString()}
+                </p>
+              </div>
 
-      /* ─────────────────────────────────────────────────────────── */
-      const payingNative = selectedToken.isNative === true;
-      const mint = payingNative
-        ? NATIVE_MINT                          // So111…
-        : new PublicKey(selectedToken.address);
+              {/* Receipt Details */}
+              <div className="px-6 py-5 space-y-4">
+                {/* Amount */}
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-gray-900">
+                    {amount} {token.symbol}
+                  </div>
+                  <div className="text-gray-600 text-sm mt-1">
+                    Payment Amount
+                  </div>
+                </div>
 
-      /* ATA of payer for chosen mint ---------------------------------- */
-      const payerAta = await getAssociatedTokenAddress(
-        mint,
-        wallet.publicKey,
-        true
-      );
+                {/* Divider with dots */}
+                <div className="flex items-center gap-1 py-2">
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <div key={i} className="flex-1 border-b-2 border-dotted border-gray-200" />
+                  ))}
+                </div>
 
-      const ixes = [];
+                {/* Payment Details */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">To</span>
+                    <span className="font-medium text-gray-900">{stealthData.username}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">From</span>
+                    <span className="font-medium text-gray-900">{publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}</span>
+                  </div>
+                  {stealthData?.linkData?.label && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Label</span>
+                      <span className="font-medium text-gray-900">{stealthData.linkData.label}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Network</span>
+                    <span className="font-medium text-gray-900">Solana</span>
+                  </div>
+                </div>
+              </div>
 
-      /* create payer ATA if missing */
-      if (!(await connection.getAccountInfo(payerAta))) {
-        ixes.push(
-          createAssociatedTokenAccountInstruction(
-            wallet.publicKey, payerAta, wallet.publicKey, mint
-          )
-        );
-      }
+              {/* Actions */}
+              <div className="px-6 py-5 space-y-3">
+                <a
+                  href={`https://solscan.io/tx/${signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-gray-600 font-medium"
+                >
+                  View on Solscan
+                  <ExternalLinkIcon className="w-4 h-4" />
+                </a>
 
-      /* extra wrapping steps for native SOL --------------------------- */
-      if (payingNative) {
-        const lamports = Number(amount) * LAMPORTS_PER_SOL;
-        ixes.push(
-          SystemProgram.transfer({
-            fromPubkey: wallet.publicKey,
-            toPubkey: payerAta,
-            lamports,
-          }),
-          createSyncNativeInstruction(payerAta) // converts lamports→WSOL
-        );
-      }
+                {stealthData?.linkData?.type === 'DOWNLOAD' && stealthData?.linkData?.file && (
+                  <Button
+                    className="w-full tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm"
+                    radius="full"
+                    size="lg"
+                    onPress={() => {
+                      // Handle download here
+                      console.log('Downloading file:', stealthData.linkData.file)
+                    }}
+                  >
+                    🎁 Download File
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
 
-      /* build stealth-pay IX ----------------------------------------- */
-      const { tx: payTx } = await buildPayTx({
-        connection,
-        payerPubkey: wallet.publicKey,
-        metaSpendPub: stealthData.metaSpendPub,
-        metaViewPub: stealthData.metaViewPub,
-        amount: payingNative            // units: lamports or μ-token
-          ? Number(amount) * LAMPORTS_PER_SOL
-          : Number(amount) * 1_000_000,       // 6-dec USDC
-        label: 'personal',
-        mint,
-        payerAta,
-        programId: new PublicKey('ECytFKSRMLkWYPp1jnnCEt8AcdnUeaLfKyfr16J3SgUk'),
-      });
-
-      /* merge and send ------------------------------------------------ */
-      const tx = new Transaction()
-        .add(...ixes, ...payTx.instructions);
-      tx.feePayer = wallet.publicKey;
-      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-      const sig = await wallet.sendTransaction(tx, connection, {
-        skipPreflight: true,          // avoid false warning
-      });
-      await connection.confirmTransaction(sig, 'confirmed');
-      console.log('sig', sig);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsPaying(false);
-    }
-  }
+          {/* Share or New Payment */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-8 flex flex-col items-center gap-3"
+          >
+            <Button
+              variant="light"
+              radius="full"
+              className="font-medium"
+              onPress={() => window.location.reload()}
+            >
+              Make Another Payment
+            </Button>
+          </motion.div>
+        </div>
+      </AnimateComponent>
+    );
+  };
 
   return (
     <div className='w-full min-h-screen flex flex-col items-center justify-center'>
@@ -354,6 +392,10 @@ export default function ReceivePage({
               </div>
             </div>
           </AnimateComponent>
+        ) : paymentSuccess ? (
+          <div className='w-full'>
+            <PaymentSuccessView paymentDetails={paymentSuccess} />
+          </div>
         ) : (
           <div className='nice-card bg-gradient-to-br bg-background-500 p-0 w-full flex flex-col overflow-hidden'>
             <AnimatePresence>
@@ -672,26 +714,29 @@ export default function ReceivePage({
                   )}
 
                   <AnimateComponent delay={600} className='w-full'>
-                    <Button
-                      className='tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full'
-                      radius='full'
-                      size='lg'
-                      onPress={handlePay}
-                      isLoading={isPaying}
-                      isDisabled={isPaying || !selectedToken || !amount}
-                    >
-                      {isPaying ? '✨ Processing...' : (
-                        stealthData?.linkData?.type === 'DOWNLOAD' 
-                          ? '🎁 Pay & Download' 
-                          : '💰 Pay'
-                      )}
-                    </Button>
+                    <PayButton
+                      selectedToken={selectedToken}
+                      amount={amount}
+                      stealthData={stealthData}
+                      onSuccess={(sig) => {
+                        console.log('Payment successful:', sig)
+                        setPaymentSuccess({
+                          signature: sig,
+                          amount: amount,
+                          token: selectedToken,
+                          timestamp: Date.now()
+                        })
+                      }}
+                      onError={(error) => {
+                        console.error('Payment failed:', error)
+                      }}
+                    />
                   </AnimateComponent>
                 </div>
               ) : (
-                <AnimateComponent delay={400}>
+                <AnimateComponent delay={400} className='w-full'>
                   <Button
-                    className='tracking-tight font-semibold px-8 py-6 text-lg'
+                    className='tracking-tight font-semibold px-8 py-6 text-lg w-full'
                     radius='full'
                     size='md'
                     color='primary'
