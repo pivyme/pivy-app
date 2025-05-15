@@ -2,9 +2,46 @@ import { useAuth } from '@/providers/AuthProvider';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { Tab, Tabs } from '@heroui/react';
-import { WalletIcon, ArrowDownLeftIcon, ArrowUpRightIcon } from 'lucide-react';
+import { WalletIcon, ArrowDownLeftIcon, ArrowUpRightIcon, SparklesIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActivityItem from './ActivityItem';
+
+const EmptyState = ({ type }) => {
+  const states = {
+    all: {
+      icon: '✨',
+      title: 'No Transactions Yet',
+      description: 'Your transaction history will appear here'
+    },
+    incoming: {
+      icon: '💫',
+      title: 'No Incoming Transactions',
+      description: 'Share your payment link to receive funds'
+    },
+    outgoing: {
+      icon: '🌟',
+      title: 'No Outgoing Transactions',
+      description: 'Send funds to get started'
+    }
+  };
+
+  const { icon, title, description } = states[type];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="flex flex-col items-center justify-center py-8 px-4"
+    >
+      <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3">
+        <span className="text-2xl">{icon}</span>
+      </div>
+      <h3 className="text-gray-900 font-semibold mb-1">{title}</h3>
+      <p className="text-gray-500 text-sm text-center">{description}</p>
+    </motion.div>
+  );
+};
 
 export default function ActivityCard() {
   const { accessToken } = useAuth();
@@ -31,16 +68,30 @@ export default function ActivityCard() {
   ];
 
   const handleFetchActivities = async () => {
-    const activities = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/user/activities`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
-    setActivities(activities.data);
+    try {
+      const activities = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/user/activities`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        params: {
+          chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+        }
+      });
+      setActivities(activities.data);
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    }
   };
 
   useEffect(() => {
+    // Initial fetch
     handleFetchActivities();
+
+    // Set up polling interval
+    const intervalId = setInterval(handleFetchActivities, 5000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const filteredActivities = activities?.filter(activity => {
@@ -92,7 +143,7 @@ export default function ActivityCard() {
         </Tabs>
       </div>
 
-      <div className='mt-4'>
+      <div className='mt-4 h-full min-h-[10vh] max-h-[28vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 pr-2'>
         <AnimatePresence mode="wait">
           <motion.div
             key={selectedTab}
@@ -102,14 +153,18 @@ export default function ActivityCard() {
             transition={{ duration: 0.2 }}
             className="flex flex-col gap-2"
           >
-            {filteredActivities?.map((activity) => (
-              <ActivityItem
-                key={activity.id}
-                activity={activity}
-                isExpanded={expandedItems.has(activity.id)}
-                onToggle={() => toggleItem(activity.id)}
-              />
-            ))}
+            {filteredActivities?.length > 0 ? (
+              filteredActivities.map((activity) => (
+                <ActivityItem
+                  key={activity.id}
+                  activity={activity}
+                  isExpanded={expandedItems.has(activity.id)}
+                  onToggle={() => toggleItem(activity.id)}
+                />
+              ))
+            ) : (
+              <EmptyState type={selectedTab} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

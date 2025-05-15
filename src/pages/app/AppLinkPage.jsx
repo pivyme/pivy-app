@@ -6,6 +6,7 @@ import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon } from 'luci
 import { COLORS, CHAINS } from '@/config'
 import ColorCard from '@/components/elements/ColorCard'
 import AnimateComponent from '@/components/elements/AnimateComponent'
+import { linkEvents } from '@/lib/events'
 
 export default function AppLinkPage() {
   const { accessToken } = useAuth()
@@ -43,6 +44,14 @@ export default function AppLinkPage() {
 
   useEffect(() => {
     handleFetchLinks()
+
+    // Subscribe to link creation events
+    const unsubscribe = linkEvents.subscribe(() => {
+      handleFetchLinks()
+    })
+
+    // Cleanup subscription
+    return () => unsubscribe()
   }, [])
 
   const handleCopyLink = (link) => {
@@ -88,7 +97,7 @@ export default function AppLinkPage() {
             </ColorCard>
           ) : links.length === 0 ? (
             // Empty State
-            <ColorCard color="blue" className="nice-card">
+            <ColorCard color="blue" className="nice-card p-2">
               <div className="p-8 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <LinkIcon className="w-12 h-12 text-gray-400" />
@@ -120,7 +129,7 @@ export default function AppLinkPage() {
                       {/* Link Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div 
+                          <div
                             className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm"
                             style={{ backgroundColor: COLORS.find(c => c.id === link.backgroundColor)?.light }}
                           >
@@ -176,22 +185,22 @@ export default function AppLinkPage() {
                         )}
 
                         {/* Amount Info (if fixed) */}
-                        {link.amountType === 'FIXED' && link.amountData && (
+                        {link.amountType === 'FIXED' && (
                           <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5">
                             <div className="flex items-center gap-3 flex-1">
-                              {link.tokenInfo || getTokenInfo(link.amountData.mintAddress) ? (
-                                <img 
-                                  src={link.tokenInfo?.imageUrl || getTokenInfo(link.amountData.mintAddress)?.image}
-                                  alt={link.tokenInfo?.symbol || getTokenInfo(link.amountData.mintAddress)?.symbol}
+                              {link.mint?.imageUrl ? (
+                                <img
+                                  src={link.mint.imageUrl}
+                                  alt={link.mint.symbol}
                                   className="w-5 h-5 rounded-full"
                                 />
                               ) : (
                                 <WalletIcon className="w-4 h-4 text-gray-400" />
                               )}
                               <span className="font-medium text-gray-900">
-                                {link.amountData.amount / 1000000}
+                                {link.amount}
                                 <span className="text-gray-500 ml-1">
-                                  {link.tokenInfo?.symbol || getTokenInfo(link.amountData.mintAddress)?.symbol || 'tokens'}
+                                  {link.mint?.symbol || 'tokens'}
                                 </span>
                               </span>
                             </div>

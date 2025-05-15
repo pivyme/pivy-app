@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon, ChevronDownIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { COLORS } from '@/config';
+import { getExplorerAccountLink, getExplorerTxLink } from '@/utils/misc';
 
 export default function ActivityItem({ activity, isExpanded, onToggle }) {
   const isIncoming = activity.type === 'PAYMENT';
@@ -109,7 +110,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                   <span className="text-gray-500">Tx Hash</span>
                   <div className="flex items-center gap-1">
                     <a
-                      href={`https://solscan.io/tx/${activity.id}`}
+                      href={getExplorerTxLink(activity.id, activity.chain)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={linkStyles}
@@ -123,7 +124,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                 <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">{isIncoming ? 'From' : 'To'}</span>
                   <a
-                    href={`https://solscan.io/account/${activity.from}`}
+                    href={getExplorerAccountLink(activity.from, activity.chain)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={linkStyles}

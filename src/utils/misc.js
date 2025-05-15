@@ -8,3 +8,10 @@ export const getExplorerTxLink = (txHash, chain = 'DEVNET') => {
   }
   return `https://solscan.io/tx/${txHash}`;
 }
+
+export const getExplorerAccountLink = (address, chain = 'DEVNET') => {
+  if (chain === 'DEVNET') {
+    return `https://solscan.io/account/${address}?cluster=devnet`;
+  }
+  return `https://solscan.io/account/${address}`;
+}

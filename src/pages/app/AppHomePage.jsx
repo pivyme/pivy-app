@@ -59,19 +59,19 @@ export default function AppHomePage() {
 const AppDashboard = () => {
   return (
     <div className='flex flex-col gap-12'>
-      {/* Receive */}
+      {/* Funds */}
       <AnimateComponent>
         <div>
-          <h1 className='font-bold tracking-tight text-2xl mb-2'>Receive</h1>
-          <ReceiveCard />
+          {/* <h1 className='font-bold tracking-tight text-2xl mb-2'>Funds</h1> */}
+          <FundsCard />
         </div>
       </AnimateComponent>
 
-      {/* Funds */}
+      {/* Receive */}
       <AnimateComponent delay={200}>
         <div>
-          <h1 className='font-bold tracking-tight text-2xl mb-2'>Funds</h1>
-          <FundsCard />
+          <h1 className='font-bold tracking-tight text-2xl mb-2'>Receive</h1>
+          <ReceiveCard />
         </div>
       </AnimateComponent>
 
@@ -129,7 +129,9 @@ const Onboarding = () => {
         const { data } = await axios.get(
           `${import.meta.env.VITE_BACKEND_URL}/user/username/check`,
           {
-            params: { username: debouncedUsername },
+            params: {
+              username: debouncedUsername
+            },
           }
         );
         setIsAvailable(data.isAvailable);

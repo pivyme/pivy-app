@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 import { sleep } from '@/utils/process'
 import { COLORS } from '@/config'
+import { linkEvents } from '@/lib/events'
 
 const slugify = (text) => {
   return text
@@ -102,7 +103,9 @@ export default function CreateLinkModal({
 
       handleResetForm()
 
-      // Reset 
+      // Emit link created event
+      linkEvents.emit()
+
     } catch (error) {
       console.error('Failed to create link:', error)
       // TODO: Show error toast

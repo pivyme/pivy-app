@@ -12,6 +12,7 @@ import PayButton from '@/components/app/PayButton'
 import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
 import BounceButton from '@/components/elements/BounceButton'
 import ColorCard from '@/components/elements/ColorCard'
+import { getExplorerTxLink } from '@/utils/misc'
 
 export default function ReceivePage({
   username: propUsername,
@@ -51,15 +52,20 @@ export default function ReceivePage({
         }
 
         // Create a minimum loading time promise
-        const minimumLoadingTime = new Promise(resolve => 
-          setTimeout(resolve, 0)
+        const minimumLoadingTime = new Promise(resolve =>
+          setTimeout(resolve, 2000)
         );
 
         // Fetch data promise
         const fetchDataPromise = async () => {
           // Fetch stealth data
           const stealthResponse = await axios.get(
-            `${import.meta.env.VITE_BACKEND_URL}/address/${username}/${tag}`
+            `${import.meta.env.VITE_BACKEND_URL}/address/${username}/${tag}`,
+            {
+              params: {
+                chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+              }
+            }
           )
 
           if (!mounted) return
@@ -152,7 +158,12 @@ export default function ReceivePage({
   const handleFetchTokenBalances = async () => {
     try {
       const balances = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/user/balance/${wallet.publicKey}`
+        `${import.meta.env.VITE_BACKEND_URL}/user/balance/${wallet.publicKey}`,
+        {
+          params: {
+            chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+          }
+        }
       )
       console.log('balances', balances.data)
       setTokenBalances(balances.data)
@@ -160,7 +171,7 @@ export default function ReceivePage({
       // If it's a fixed amount payment, find and select the matching token
       if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.amountData) {
         const mintAddress = stealthData.linkData.amountData.mintAddress;
-        
+
         // Check if the token is in the balances
         let matchingToken;
         if (mintAddress === NATIVE_MINT.toString()) {
@@ -174,7 +185,7 @@ export default function ReceivePage({
           const normalizedToken = normalizeTokenData(matchingToken);
           setSelectedToken(normalizedToken);
           setTokenSearchValue(normalizedToken.name);
-        } 
+        }
         // If not found in balances, use the tokenInfo from the fixed amount data
         else if (stealthData.linkData.tokenInfo) {
           const normalizedToken = normalizeFixedTokenData(stealthData.linkData.tokenInfo);
@@ -208,7 +219,7 @@ export default function ReceivePage({
 
   const PaymentSuccessView = ({ paymentDetails }) => {
     const { signature, amount, token, timestamp } = paymentDetails;
-    
+
     return (
       <AnimateComponent>
         <div className='nice-card p-8 w-full flex flex-col items-center'>
@@ -296,7 +307,8 @@ export default function ReceivePage({
               {/* Actions */}
               <div className="px-6 py-5 space-y-3">
                 <a
-                  href={`https://solscan.io/tx/${signature}`}
+                  // href={`https://solscan.io/tx/${signature}`}
+                  href={getExplorerTxLink(signature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-gray-600 font-medium"
@@ -316,7 +328,10 @@ export default function ReceivePage({
                         const response = await axios.get(
                           `${import.meta.env.VITE_BACKEND_URL}/link/file/${stealthData.linkData.file.id}`,
                           {
-                            params: { txHash: signature },
+                            params: {
+                              txHash: signature,
+                              chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+                            },
                             responseType: 'blob'
                           }
                         )
@@ -372,7 +387,7 @@ export default function ReceivePage({
         <AnimateComponent>
           <img src="/pivy-horizontal-logo.svg" alt="Privy" className='w-[12rem] mb-4' />
         </AnimateComponent>
-        
+
         {isInitializing ? (
           <AnimateComponent delay={100}>
             <div className='nice-card p-8 w-full flex flex-col items-center'>
@@ -423,7 +438,7 @@ export default function ReceivePage({
             <PaymentSuccessView paymentDetails={paymentSuccess} />
           </div>
         ) : (
-          <ColorCard color="pink" className='nice-card bg-gradient-to-br bg-background-500 p-4 w-full flex flex-col overflow-hidden'>
+          <ColorCard color={stealthData?.linkData?.backgroundColor} className='nice-card bg-gradient-to-br bg-background-500 p-4 w-full flex flex-col overflow-hidden'>
             <AnimatePresence>
               {connected && (
                 <motion.div
@@ -525,12 +540,12 @@ export default function ReceivePage({
                       </span>
                       <div>
                         <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
-                          {stealthData?.linkData?.type === 'DOWNLOAD' 
-                            ? 'Unlock This File' 
+                          {stealthData?.linkData?.type === 'DOWNLOAD'
+                            ? 'Unlock This File'
                             : `Send funds to ${stealthData?.username}`}
                         </h2>
                         <p className='text-gray-600'>
-                          {stealthData?.linkData?.type === 'DOWNLOAD' 
+                          {stealthData?.linkData?.type === 'DOWNLOAD'
                             ? <span>from <span className='font-semibold text-gray-900'>{stealthData?.username}</span></span>
                             : <span>secure & private payment</span>
                           }
@@ -568,7 +583,7 @@ export default function ReceivePage({
                         <div>
                           <p className='font-medium text-gray-900'>Fixed Price</p>
                           <p className='text-sm text-gray-600'>
-                            {stealthData.linkData.amountData.amount / 1000000} {stealthData.linkData.tokenInfo?.symbol || 'tokens'}
+                            {stealthData.linkData.amount} {stealthData.linkData.mint?.symbol || 'tokens'}
                           </p>
                         </div>
                       </div>
@@ -603,18 +618,18 @@ export default function ReceivePage({
 
                       {stealthData?.linkData?.amountType === 'FIXED' ? (
                         <div className='p-4 border border-gray-200 rounded-xl bg-gray-50/80 flex items-center gap-3'>
-                          {stealthData.linkData.tokenInfo?.imageUrl ? (
+                          {stealthData.linkData.mint?.imageUrl ? (
                             <img
-                              src={stealthData.linkData.tokenInfo.imageUrl}
-                              alt={stealthData.linkData.tokenInfo.symbol}
+                              src={stealthData.linkData.mint.imageUrl}
+                              alt={stealthData.linkData.mint.symbol}
                               className="w-8 h-8 rounded-full"
                             />
                           ) : (
                             <span className='text-2xl'>💎</span>
                           )}
                           <div>
-                            <p className='font-medium text-gray-900'>{stealthData.linkData.tokenInfo?.name || 'Token'}</p>
-                            <p className='text-sm text-gray-600'>{stealthData.linkData.tokenInfo?.symbol}</p>
+                            <p className='font-medium text-gray-900'>{stealthData.linkData.mint?.name || 'Token'}</p>
+                            <p className='text-sm text-gray-600'>{stealthData.linkData.mint?.symbol}</p>
                           </div>
                         </div>
                       ) : (
@@ -708,16 +723,16 @@ export default function ReceivePage({
                         <div className='relative'>
                           <input
                             type="text"
-                            value={stealthData?.linkData?.amountType === 'FIXED' 
-                              ? (stealthData.linkData.amountData.amount / 1000000).toString()
+                            value={stealthData?.linkData?.amountType === 'FIXED'
+                              ? stealthData.linkData.amount.toString()
                               : amount
                             }
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="0.00"
                             disabled={stealthData?.linkData?.amountType === 'FIXED'}
                             className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-medium tracking-tight outline-none transition-all
-                              ${stealthData?.linkData?.amountType === 'FIXED' 
-                                ? 'opacity-75 cursor-not-allowed' 
+                              ${stealthData?.linkData?.amountType === 'FIXED'
+                                ? 'opacity-75 cursor-not-allowed'
                                 : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                               }`}
                           />

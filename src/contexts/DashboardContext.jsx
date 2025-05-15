@@ -1,5 +1,6 @@
 // DashboardContext.js
 import { useAuth } from "@/providers/AuthProvider";
+import { sleep } from "@/utils/process";
 import axios from "axios";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -8,9 +9,9 @@ const DashboardContext = createContext({
   profile: null,
   isLoading: false,
   selectedReceive: "",
-  refreshSelectedReceiveAddress: () => {},
+  refreshSelectedReceiveAddress: () => { },
   balances: null,
-  histories: null ,
+  activities: null,
 });
 
 let lastRefreshTime = 0;
@@ -20,50 +21,7 @@ export function DashboardProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [balances, setBalances] = useState(null);
-  const [histories, setHistories] = useState(null);
-  const [selectedReceive, setSelectedReceive] = useState("");
-  const [isLoadingSelectedReceive, setIsLoadingSelectedReceive] = useState(false);
-
-  // Add function to fetch address
-  const fetchAddress = async () => {
-    if (!me?.username || !accessToken) return;
-
-    try {
-      const { data } = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/address/get-address/${me.username}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      setSelectedReceive(data.address);
-    } catch (error) {
-      console.error("Error fetching address:", error);
-    }
-  };
-
-  // Initial fetch of address
-  useEffect(() => {
-    fetchAddress();
-  }, [me?.username, accessToken]);
-
-  const refreshSelectedReceiveAddress = async () => {
-    const now = Date.now();
-    if (now - lastRefreshTime < 2000) {
-      return;
-    }
-
-    try {
-      setIsLoadingSelectedReceive(true);
-      lastRefreshTime = now;
-      await fetchAddress();
-    } catch (error) {
-      console.error("Error refreshing selected receive address:", error);
-    } finally {
-      setIsLoadingSelectedReceive(false);
-    }
-  };
+  const [activities, setActivities] = useState(null);
 
   const handleGetBalances = async () => {
     if (!accessToken) {
@@ -72,11 +30,14 @@ export function DashboardProvider({ children }) {
 
     try {
       const { data } = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/user/wallet/balances`,
+        `${import.meta.env.VITE_BACKEND_URL}/user/balances`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          params: {
+            chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+          }
         }
       );
 
@@ -87,14 +48,14 @@ export function DashboardProvider({ children }) {
     }
   };
 
-  const handleGetHistories = async () => {
+  const handleGetActivities = async () => {
     if (!accessToken) {
       return;
     }
 
     try {
       const { data } = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/user/wallet/transactions`,
+        `${import.meta.env.VITE_BACKEND_URL}/user/activities`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -106,36 +67,34 @@ export function DashboardProvider({ children }) {
         }
       );
 
-      setHistories(data.transactions);
+      setActivities(data.transactions);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     }
   };
 
   useEffect(() => {
-    // Initial fetch of both balances and histories
+    // Initial fetch of both balances and activities
     handleGetBalances();
-    handleGetHistories();
+    handleGetActivities();
 
     // Refresh balances every 15 seconds
     const balancesInterval = setInterval(handleGetBalances, 15000);
-    
-    // Refresh histories every 5 seconds
-    const historiesInterval = setInterval(handleGetHistories, 5000);
+
+    // Refresh activities every 5 seconds
+    const activitiesInterval = setInterval(handleGetActivities, 5000);
 
     return () => {
       clearInterval(balancesInterval);
-      clearInterval(historiesInterval);
+      clearInterval(activitiesInterval);
     };
   }, [accessToken]);
 
   const value = {
     profile,
     isLoading,
-    selectedReceive,
-    refreshSelectedReceiveAddress,
     balances,
-    histories,
+    activities,
   };
 
   return (

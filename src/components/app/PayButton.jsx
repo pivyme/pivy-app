@@ -52,7 +52,11 @@ export default function PayButton({
 
       /* extra wrapping steps for native SOL */
       if (payingNative) {
-        const lamports = Number(amount) * LAMPORTS_PER_SOL;
+        // If it's a fixed amount payment, use chainAmount, otherwise calculate from amount
+        const lamports = stealthData?.linkData?.amountType === 'FIXED'
+          ? Number(stealthData.linkData.chainAmount)
+          : Number(amount) * LAMPORTS_PER_SOL;
+
         ixes.push(
           SystemProgram.transfer({
             fromPubkey: wallet.publicKey,
@@ -65,7 +69,6 @@ export default function PayButton({
 
       let label = '';
       // If tag exists, just use tag
-      // If tag doesn't exist, use 'personal'
       if (stealthData?.linkData?.tag) {
         label = stealthData.linkData.tag;
       } else {
@@ -73,7 +76,6 @@ export default function PayButton({
       }
 
       console.log('label', label);
-
       console.log('building stealth-pay IX...');
 
       /* build stealth-pay IX */
@@ -82,9 +84,9 @@ export default function PayButton({
         payerPubkey: wallet.publicKey,
         metaSpendPub: stealthData.metaSpendPub,
         metaViewPub: stealthData.metaViewPub,
-        amount: payingNative
-          ? Number(amount) * LAMPORTS_PER_SOL
-          : Number(amount) * 1_000_000,
+        amount: stealthData?.linkData?.amountType === 'FIXED'
+          ? Number(stealthData.linkData.chainAmount)
+          : Number(amount) * Math.pow(10, selectedToken.decimals),
         label: label,
         mint,
         payerAta,
@@ -97,12 +99,12 @@ export default function PayButton({
       tx.feePayer = wallet.publicKey;
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      // const sig = await wallet.sendTransaction(tx, connection, {
-      //   skipPreflight: true,
-      // });
-      console.log('Signing transaction...');
-      const signedTx = await wallet.signTransaction(tx);
-      const sig = await connection.sendRawTransaction(signedTx.serialize());
+      const sig = await wallet.sendTransaction(tx, connection, {
+        skipPreflight: true,
+      });
+      // console.log('Signing transaction...');
+      // const signedTx = await wallet.signTransaction(tx);
+      // const sig = await connection.sendRawTransaction(signedTx.serialize());
 
       console.log('Confirming transaction...');
       await connection.confirmTransaction({
@@ -178,7 +180,10 @@ export default function PayButton({
                   const response = await axios.get(
                     `${import.meta.env.VITE_BACKEND_URL}/link/file/${stealthData.linkData.file.id}`,
                     {
-                      params: { txHash: transactionSignature },
+                      params: {
+                        txHash: transactionSignature,
+                        chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+                      },
                       responseType: 'blob'
                     }
                   )
