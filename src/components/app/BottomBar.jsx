@@ -53,7 +53,10 @@ const NAVIGATION_ITEMS = [
   },
 ]
 
-export default function BottomBar() {
+export default function BottomBar({
+  isCreateLinkModalOpen,
+  setIsCreateLinkModalOpen
+}) {
   const location = useLocation()
   const shouldShow = ['/app', '/app/links', '/app/alerts'].includes(location.pathname)
 
@@ -87,6 +90,7 @@ export default function BottomBar() {
                   radius="full"
                   size="lg"
                   startContent={<PlusIcon className="w-5 h-5" />}
+                  onPress={() => setIsCreateLinkModalOpen(true)}
                 >
                   Create Link
                 </Button>
