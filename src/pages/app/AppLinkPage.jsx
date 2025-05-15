@@ -135,7 +135,7 @@ export default function AppLinkPage() {
                           isIconOnly
                           variant="light"
                           radius="full"
-                          className="text-gray-400 hover:text-primary-500"
+                          className="text-gray-400 hover:text-black"
                           onClick={() => window.open(`https://pivy.me/${link.user.username}/${link.tag}`, '_blank')}
                         >
                           <ArrowUpRightIcon className="w-4 h-4" />
@@ -155,7 +155,7 @@ export default function AppLinkPage() {
                             variant="flat"
                             radius="full"
                             size="sm"
-                            className="text-gray-500 hover:text-primary-500 bg-white"
+                            className="text-gray-500 hover:text-blackbg-white"
                             onClick={() => handleCopyLink(link)}
                           >
                             <CopyIcon className="w-3.5 h-3.5" />

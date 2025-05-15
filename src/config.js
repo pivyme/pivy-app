@@ -29,7 +29,7 @@ export const COLORS = [
 export const CHAINS = {
   MAINNET: {
     id: "MAINNET",
-    rpcUrl: '',
+    rpcUrl: import.meta.env.VITE_SOLANA_RPC_MAINNET,
     tokens: [
       {
         name: "SOL",
@@ -51,7 +51,7 @@ export const CHAINS = {
   },
   DEVNET: {
     id: "DEVNET",
-    rpcUrl: '',
+    rpcUrl: import.meta.env.VITE_SOLANA_RPC_DEVNET,
     tokens: [
       {
         name: "USDC",

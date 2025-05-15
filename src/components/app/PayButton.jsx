@@ -9,7 +9,7 @@ import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
 import BounceButton from '@/components/elements/BounceButton'
 import axios from 'axios'
 
-export default function PayButton({ 
+export default function PayButton({
   selectedToken,
   amount,
   stealthData,
@@ -63,6 +63,19 @@ export default function PayButton({
         );
       }
 
+      let label = '';
+      // If tag exists, just use tag
+      // If tag doesn't exist, use 'personal'
+      if (stealthData?.linkData?.tag) {
+        label = stealthData.linkData.tag;
+      } else {
+        label = 'personal';
+      }
+
+      console.log('label', label);
+
+      console.log('building stealth-pay IX...');
+
       /* build stealth-pay IX */
       const { tx: payTx } = await buildPayTx({
         connection,
@@ -72,7 +85,7 @@ export default function PayButton({
         amount: payingNative
           ? Number(amount) * LAMPORTS_PER_SOL
           : Number(amount) * 1_000_000,
-        label: 'personal',
+        label: label,
         mint,
         payerAta,
         programId: new PublicKey('ECytFKSRMLkWYPp1jnnCEt8AcdnUeaLfKyfr16J3SgUk'),
@@ -84,16 +97,23 @@ export default function PayButton({
       tx.feePayer = wallet.publicKey;
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      const sig = await wallet.sendTransaction(tx, connection, {
-        skipPreflight: true,
-      });
-      await connection.confirmTransaction(sig, 'confirmed');
+      // const sig = await wallet.sendTransaction(tx, connection, {
+      //   skipPreflight: true,
+      // });
+      console.log('Signing transaction...');
+      const signedTx = await wallet.signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signedTx.serialize());
+
+      console.log('Confirming transaction...');
+      await connection.confirmTransaction({
+        signature: sig,
+      }, 'confirmed');
       console.log('Payment successful:', sig);
       setTransactionSignature(sig);
       setIsSuccess(true);
       onSuccess?.(sig);
     } catch (e) {
-      console.error('Payment failed:', e);
+      console.log('Payment failed:', e);
       onError?.(e);
     } finally {
       setIsPaying(false);
@@ -120,7 +140,7 @@ export default function PayButton({
             <CheckCircle2Icon className="w-10 h-10 text-green-500" />
           </div>
         </motion.div>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -131,7 +151,7 @@ export default function PayButton({
           <p className="text-sm text-gray-600">Your transaction has been confirmed</p>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
@@ -198,8 +218,8 @@ export default function PayButton({
       isDisabled={isPaying || !selectedToken || !amount}
     >
       {isPaying ? '✨ Processing...' : (
-        stealthData?.linkData?.type === 'DOWNLOAD' 
-          ? '🎁 Pay & Download' 
+        stealthData?.linkData?.type === 'DOWNLOAD'
+          ? '🎁 Pay & Download'
           : '💰 Pay'
       )}
     </BounceButton>

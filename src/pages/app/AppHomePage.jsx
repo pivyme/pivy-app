@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import FundsCard from '@/components/app/FundsCard';
 import ReceiveCard from '@/components/app/ReceiveCard';
 import { RESTRICTED_USERNAME } from '@/config';
+import ActivityCard from '@/components/app/ActivityCard';
 
 export default function AppHomePage() {
   const { connected, connecting } = useWallet();
@@ -78,7 +79,7 @@ const AppDashboard = () => {
       <AnimateComponent delay={400}>
         <div>
           <h1 className='font-bold tracking-tight text-2xl mb-2'>Activity</h1>
-          <FundsCard />
+          <ActivityCard />
         </div>
       </AnimateComponent>
 

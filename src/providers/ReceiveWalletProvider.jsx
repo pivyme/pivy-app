@@ -14,6 +14,7 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import { CHAINS } from "@/config";
 
 export default function ReceiveWalletProvider({ children }) {
   console.log('ReceiveWalletProvider mounted');
@@ -23,7 +24,9 @@ export default function ReceiveWalletProvider({ children }) {
       ? WalletAdapterNetwork.Devnet
       : WalletAdapterNetwork.Mainnet;
 
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const chain = CHAINS[import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"];
+  // const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const endpoint = chain.rpcUrl;
 
   const wallets = useMemo(
     () => [
@@ -38,12 +41,12 @@ export default function ReceiveWalletProvider({ children }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider 
-        wallets={wallets} 
+      <WalletProvider
+        wallets={wallets}
         autoConnect={true}
       >
         <WalletModalProvider>
-          <AuthProvider>{children}</AuthProvider>
+          {children}
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
