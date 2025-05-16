@@ -3,9 +3,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon, ChevronDownIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { COLORS } from '@/config';
-import { getExplorerAccountLink, getExplorerTxLink } from '@/utils/misc';
+import { getExplorerAccountLink, getExplorerTxLink, shortenAddress } from '@/utils/misc';
 
 export default function ActivityItem({ activity, isExpanded, onToggle }) {
+  // Helper function to format amount based on decimals
+  const formatAmount = (amount, decimals) => {
+    const value = Number(amount) / Math.pow(10, decimals);
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+  };
+
+  // Get the token details - handle both structures
+  const token = activity.type === 'WITHDRAWAL' ? activity.tokens[activity.token.symbol] : activity.token;
+  const amount = formatAmount(activity.amount, token.decimals);
+
+  // Get the relevant address based on type
+  const relevantAddress = activity.type === 'WITHDRAWAL' 
+    ? activity.destinationPubkey 
+    : activity.from;
+
   const isIncoming = activity.type === 'PAYMENT';
 
   // Find the color config for the link's backgroundColor
@@ -22,8 +37,9 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
   return (
     <motion.div
       layout
-      className={`w-full overflow-hidden rounded-2xl border transition-colors ${isExpanded ? 'bg-white border-gray-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100/80'
-        }`}
+      className={`w-full overflow-hidden rounded-2xl border transition-colors ${
+        isExpanded ? 'bg-white border-gray-200' : 'bg-gray-50/50 border-transparent hover:bg-gray-100/80'
+      }`}
     >
       {/* Header - Always visible */}
       <motion.div
@@ -43,10 +59,10 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
 
           {/* Amount and Token Info */}
           <div className="flex items-center gap-3">
-            {activity.token.imageUrl ? (
+            {token.imageUrl ? (
               <img
-                src={activity.token.imageUrl}
-                alt={activity.token.symbol}
+                src={token.imageUrl}
+                alt={token.symbol}
                 className="w-10 h-10 rounded-full"
               />
             ) : (
@@ -56,7 +72,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
             )}
             <div>
               <p className="font-semibold text-lg text-gray-900">
-                {(Number(activity.amount) / Math.pow(10, activity.token.decimals)).toLocaleString()} {activity.token.symbol}
+                {amount} {token.symbol}
               </p>
               <p className="text-sm text-gray-500">
                 {formatDistanceToNow(activity.timestamp * 1000, { addSuffix: true })}
@@ -115,7 +131,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                       rel="noopener noreferrer"
                       className={linkStyles}
                     >
-                      {activity.id.slice(0, 8)}...{activity.id.slice(-8)}
+                      {shortenAddress(activity.id, 8, 8)}
                       <ExternalLinkIcon className="w-3.5 h-3.5" />
                     </a>
                   </div>
@@ -124,15 +140,26 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                 <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">{isIncoming ? 'From' : 'To'}</span>
                   <a
-                    href={getExplorerAccountLink(activity.from, activity.chain)}
+                    href={getExplorerAccountLink(relevantAddress, activity.chain)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={linkStyles}
                   >
-                    {activity.from.slice(0, 4)}...{activity.from.slice(-4)}
+                    {shortenAddress(relevantAddress, 4, 4)}
                     <ExternalLinkIcon className="w-3.5 h-3.5" />
                   </a>
                 </div>
+
+                {/* Link Details - Only for Payment type */}
+                {activity.type === 'PAYMENT' && activity.link && (
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-gray-500">Payment Link</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{activity.link.emoji}</span>
+                      <span className="text-gray-900">{activity.link.label}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">Network</span>

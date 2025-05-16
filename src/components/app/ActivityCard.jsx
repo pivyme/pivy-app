@@ -49,6 +49,8 @@ export default function ActivityCard() {
   const [selectedTab, setSelectedTab] = useState('all');
   const [expandedItems, setExpandedItems] = useState(new Set());
 
+  console.log('activities', activities)
+
   const TABS = [
     {
       id: 'all',
@@ -115,32 +117,55 @@ export default function ActivityCard() {
 
   return (
     <div className='nice-card p-4 w-full'>
-      <div className='w-fit'>
-        <Tabs
-          selectedKey={selectedTab}
-          onSelectionChange={setSelectedTab}
-          radius='full'
-          classNames={{
-            base: "w-fit",
-            tabList: "gap-1 p-1 bg-gray-100/80 rounded-full",
-            tab: "px-3 h-8 data-[selected=true]:bg-white data-[selected=true]:shadow-sm",
-            tabContent: "group-data-[selected=true]:text-gray-800 text-sm font-medium",
-            cursor: "hidden"
-          }}
-          size='sm'
+      <div className='flex items-center justify-between'>
+        <div className='w-fit'>
+          <Tabs
+            selectedKey={selectedTab}
+            onSelectionChange={setSelectedTab}
+            radius='full'
+            classNames={{
+              base: "w-fit",
+              tabList: "gap-1 p-1 bg-gray-100/80 rounded-full",
+              tab: "px-3 h-8 data-[selected=true]:bg-white data-[selected=true]:shadow-sm",
+              tabContent: "group-data-[selected=true]:text-gray-800 text-sm font-medium",
+              cursor: "hidden"
+            }}
+            size='sm'
+          >
+            {TABS.map((tab) => (
+              <Tab
+                key={tab.id}
+                title={
+                  <div className='flex flex-row items-center gap-1.5'>
+                    {tab.icon}
+                    <p className='text-sm font-medium'>{tab.label}</p>
+                  </div>
+                }
+              />
+            ))}
+          </Tabs>
+        </div>
+
+        <motion.div
+          key={selectedTab}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full"
         >
-          {TABS.map((tab) => (
-            <Tab
-              key={tab.id}
-              title={
-                <div className='flex flex-row items-center gap-1.5'>
-                  {tab.icon}
-                  <p className='text-sm font-medium'>{tab.label}</p>
-                </div>
-              }
-            />
-          ))}
-        </Tabs>
+          <span className="text-sm font-medium text-gray-900">
+            {filteredActivities?.length || 0}
+          </span>
+          <span className="text-sm text-gray-500">
+            {selectedTab === 'incoming' ? 'payments received' :
+              selectedTab === 'outgoing' ? 'withdrawals made' :
+                'transactions total'}
+          </span>
+          <span className="text-base">
+            {selectedTab === 'incoming' ? '🎁' :
+              selectedTab === 'outgoing' ? '💸' :
+                '✨'}
+          </span>
+        </motion.div>
       </div>
 
       <div className='mt-4 h-full min-h-[10vh] max-h-[28vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 pr-2'>

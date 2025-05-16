@@ -3,7 +3,7 @@ import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon } from 'lucide-react'
-import { COLORS, CHAINS } from '@/config'
+import { COLORS, CHAINS, SPECIAL_THEMES } from '@/config'
 import ColorCard from '@/components/elements/ColorCard'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { linkEvents } from '@/lib/events'
@@ -130,10 +130,22 @@ export default function AppLinkPage() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm"
+                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm relative"
                             style={{ backgroundColor: COLORS.find(c => c.id === link.backgroundColor)?.light }}
                           >
                             <span className="text-xl">{link.emoji}</span>
+                            {link.specialTheme && link.specialTheme !== 'default' && (
+                              <div 
+                                className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full bg-white shadow-sm p-0 border border-gray-100 overflow-hidden"
+                                title={`${SPECIAL_THEMES.find(t => t.id === link.specialTheme)?.name || 'Special'} Theme`}
+                              >
+                                <img 
+                                  src={SPECIAL_THEMES.find(t => t.id === link.specialTheme)?.icon} 
+                                  alt="Theme"
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            )}
                           </div>
                           <div>
                             <h3 className="font-semibold text-gray-900">{link.label || link.tag}</h3>

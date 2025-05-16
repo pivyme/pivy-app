@@ -26,6 +26,27 @@ export const COLORS = [
   { id: 'gray', value: '#6B7280', light: '#E5E7EB' },
 ]
 
+export const SPECIAL_THEMES = [
+  {
+    id:'mindblowon',
+    name:'Mindblowon',
+    icon: '/special-theme/mindblowon/logo.png',
+    headerLogo: '/special-theme/mindblowon/c-logo.png',
+  },
+  {
+    id: 'tahilalats',
+    name: 'Tahilalats',
+    icon: '/special-theme/tahilalats/logo.png',
+    headerLogo: '/special-theme/tahilalats/c-logo.png',
+  },
+  {
+    id: 'hai-dudu',
+    name: 'Hai Dudu',
+    icon: '/special-theme/hai-dudu/logo.png',
+    headerLogo: '/special-theme/hai-dudu/c-logo.png',
+  }
+]
+
 export const CHAINS = {
   MAINNET: {
     id: "MAINNET",
