@@ -42,6 +42,8 @@ export default function AppLayout() {
         <div className="light">
           <Outlet />
         </div>
+        {/* Portal root for modals */}
+        <div id="portal-root" />
       </DashboardProvider>
     </AppWalletProvider>
   );

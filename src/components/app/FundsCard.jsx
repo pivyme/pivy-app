@@ -1,6 +1,6 @@
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ArrowUpRightIcon, SparklesIcon } from 'lucide-react'
-import React, { useState } from 'react'
+import { ArrowUpRightIcon, SparklesIcon, CheckCircleIcon, ExternalLinkIcon } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
 import ColorCard from '../elements/ColorCard'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
@@ -13,6 +13,11 @@ import * as ed from '@noble/ed25519'
 import bs58 from 'bs58'
 import BN from 'bn.js';
 import { CHAINS } from '@/config'
+import { sleep } from '@/utils/process'
+import gsap from 'gsap'
+import Portal from '../shared/Portal'
+import { shortenAddress, getExplorerTxLink } from '@/utils/misc'
+import BounceButton from '../elements/BounceButton'
 
 const validateAddress = (address) => {
   try {
@@ -36,11 +41,14 @@ function TokenCard({ token, index }) {
   const [isOpen, setIsOpen] = useState(false)
   const { connection } = useConnection()
   const walletInstance = useWallet()
+  const backdropRef = useRef(null)
 
   const [amount, setAmount] = useState(1)
   const [address, setAddress] = useState('37Z16B1TYGY6gHTjFYtATJNPQwwYLgrr7sp3om2QSfUt')
   const [error, setError] = useState(null)
   const [isSending, setIsSending] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [lastTxSignature, setLastTxSignature] = useState(null)
 
   const handleSend = async () => {
     if (isSending) return
@@ -155,33 +163,6 @@ function TokenCard({ token, index }) {
           decryptedEphPriv,
         );
 
-        // console.log(`Sending test SOL from ${stealthKP.publicKey.toBase58()} to ${walletInstance.publicKey.toBase58()}`)
-        // // signer test
-        // const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_DEVNET, 'confirmed');
-        // const tx = new Transaction().add(
-        //   SystemProgram.transfer({
-        //     fromPubkey: stealthKP.publicKey,
-        //     toPubkey: walletInstance.publicKey,
-        //     lamports: 0.001 * LAMPORTS_PER_SOL
-        //   })
-        // )
-
-        // const latestBlockhash = await connection.getLatestBlockhash()
-        // tx.recentBlockhash = latestBlockhash.blockhash
-        // tx.feePayer = stealthKP.publicKey
-
-        // const signed = await stealthKP.signTransaction(tx);
-        // console.log('signed', signed)
-
-        // const sig = await connection.sendRawTransaction(signed.serialize(), {
-        //   skipPreflight: true,
-        // });
-        // console.log('sent', sig)
-        // console.log('confirming...')
-        // await connection.confirmTransaction(sig, 'confirmed');
-        // console.log('Withdrawal successful:', sig);
-        // return;
-
         const stealthAta = getAssociatedTokenAddressSync(
           mint,
           stealthKP.publicKey
@@ -203,7 +184,7 @@ function TokenCard({ token, index }) {
               tokenProgram: TOKEN_PROGRAM_ID,
             })
             .instruction()
-        ); 
+        );
       }
       // 3) assemble + partial sign + send
       const tx = new Transaction().add(...ixs);
@@ -221,7 +202,11 @@ function TokenCard({ token, index }) {
         skipPreflight: true,
       });
       await connection.confirmTransaction(sig, 'confirmed');
+      await sleep(4000)
       console.log('Withdrawal successful:', sig);
+      setLastTxSignature(sig);
+      setShowSuccessDialog(true);
+      setIsOpen(false); // Close the popover
     } catch (error) {
       console.log('Withdrawal error:', error)
       setError(`Transaction failed: ${error.message || 'Unknown error'}`)
@@ -230,133 +215,310 @@ function TokenCard({ token, index }) {
     }
   }
 
+  useEffect(() => {
+    if (!backdropRef.current) return
+
+    if (showSuccessDialog) {
+      // Entry animation
+      gsap.fromTo(backdropRef.current,
+        {
+          backdropFilter: 'blur(0px)',
+          opacity: 0
+        },
+        {
+          backdropFilter: 'blur(8px)',
+          opacity: 1,
+          duration: 0.4,
+          ease: 'power2.out'
+        }
+      )
+    } else {
+      // Exit animation
+      gsap.to(backdropRef.current, {
+        backdropFilter: 'blur(0px)',
+        opacity: 0,
+        duration: 0.2,
+        ease: 'power2.in'
+      })
+    }
+  }, [showSuccessDialog])
 
   return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{
-        type: "spring",
-        stiffness: 500,
-        damping: 30,
-        mass: 1,
-        delay: index * 0.08,
-      }}
-    >
-      <div className='bg-white p-4 rounded-2xl border-[1.5px] border-gray-200/80 transition-colors group shadow-sm hover:shadow'>
-        <div className='flex items-center justify-between gap-3'>
-          {/* Token Icon */}
-          <div className='w-10 h-10 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0 border border-gray-100'>
-            {token.imageUrl ? (
-              <img
-                src={token.imageUrl}
-                alt={token.name}
-                className='w-full h-full object-cover'
-              />
-            ) : (
-              <span className='text-xl'>💰</span>
-            )}
-          </div>
-
-          {/* Token Amount and Name */}
-          <div className='flex-1 min-w-0'>
-            <div className='flex items-baseline gap-2'>
-              <p className='text-xl font-bold tracking-tight text-gray-900 truncate'>
-                {token.total.toLocaleString('en-US', { minimumFractionDigits: token.decimals === 6 ? 2 : 4, maximumFractionDigits: token.decimals === 6 ? 2 : 4 })}
-              </p>
-              <p className='text-lg font-medium text-gray-500'>{token.symbol}</p>
+    <>
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{
+          type: "spring",
+          stiffness: 500,
+          damping: 30,
+          mass: 1,
+          delay: index * 0.08,
+        }}
+      >
+        <div className='bg-white p-4 rounded-2xl border-[1.5px] border-gray-200/80 transition-colors group shadow-sm hover:shadow'>
+          <div className='flex items-center justify-between gap-3'>
+            {/* Token Icon */}
+            <div className='w-10 h-10 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0 border border-gray-100'>
+              {token.imageUrl ? (
+                <img
+                  src={token.imageUrl}
+                  alt={token.name}
+                  className='w-full h-full object-cover'
+                />
+              ) : (
+                <span className='text-xl'>💰</span>
+              )}
             </div>
-            <div className='flex items-baseline justify-between'>
-              <p className='text-sm text-gray-500 truncate'>{token.name}</p>
-              <p className='text-sm font-medium text-gray-900'>
-                ${token.usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
 
-          {/* Action Button */}
-          <Popover
-            isOpen={isOpen}
-            onOpenChange={setIsOpen}
-            placement='bottom'
-            classNames={{
-              content: "rounded-2xl shadow-xl border border-gray-100",
-            }}
-          >
-            <PopoverTrigger>
-              <Button
-                isIconOnly
-                size='md'
-                variant='light'
-                className='-mr-2'
-              >
-                <ArrowUpRightIcon className='w-6 h-6 opacity-40' />
-              </Button>
-            </PopoverTrigger>
-
-            <PopoverContent className="min-w-[18rem] p-4 bg-white rounded-2xl">
-              <div className="flex flex-col gap-4 w-full">
-                {/* Amount Input */}
-                <div className="w-full">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm text-gray-600 font-medium">Amount</label>
-                    <button
-                      onClick={() => setAmount(token.total)}
-                      className="text-xs px-2 py-1 rounded-xl bg-primary-500 hover:bg-primary-600 text-gray-900 font-semibold transition-colors"
-                    >
-                      Max
-                    </button>
-                  </div>
-                  <Input
-                    type="number"
-                    value={amount}
-                    onValueChange={(val) => {
-                      setAmount(val);
-                      setError(null);
-                    }}
-                    placeholder="0.00"
-                    endContent={<span className="text-gray-600">{token.symbol}</span>}
-                    classNames={{
-                      input: "bg-white",
-                      inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"
-                    }}
-                  />
-                </div>
-
-                {/* Address Input */}
-                <div className="w-full">
-                  <label className="text-sm text-gray-600 font-medium mb-2 block">Address</label>
-                  <Input
-                    type="text"
-                    value={address}
-                    onValueChange={(val) => {
-                      setAddress(val);
-                      setError(null);
-                    }}
-                    placeholder="Recipient address"
-                    classNames={{
-                      input: "bg-white",
-                      inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"
-                    }}
-                  />
-                </div>
-
-                {error && <div className="text-red-500 text-sm -mt-2">{error}</div>}
-
-                <Button
-                  onPress={handleSend}
-                  isDisabled={isSending || !amount || !address}
-                  isLoading={isSending}
-                  className="bg-primary-500 hover:bg-primary-600 text-gray-900 font-bold tracking-tight w-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
-                >
-                  Send
-                </Button>
+            {/* Token Amount and Name */}
+            <div className='flex-1 min-w-0'>
+              <div className='flex items-baseline gap-2'>
+                <p className='text-xl font-bold tracking-tight text-gray-900 truncate'>
+                  {token.total.toLocaleString('en-US', { minimumFractionDigits: token.decimals === 6 ? 2 : 4, maximumFractionDigits: token.decimals === 6 ? 2 : 4 })}
+                </p>
+                <p className='text-lg font-medium text-gray-500'>{token.symbol}</p>
               </div>
-            </PopoverContent>
-          </Popover>
+              <div className='flex items-baseline justify-between'>
+                <p className='text-sm text-gray-500 truncate'>{token.name}</p>
+                <p className='text-sm font-medium text-gray-900'>
+                  ${token.usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <Popover
+              isOpen={isOpen}
+              onOpenChange={setIsOpen}
+              placement='bottom'
+              classNames={{
+                content: "rounded-2xl shadow-xl border border-gray-100",
+              }}
+            >
+              <PopoverTrigger>
+                <Button
+                  isIconOnly
+                  size='md'
+                  variant='light'
+                  className='-mr-2'
+                >
+                  <ArrowUpRightIcon className='w-6 h-6 opacity-40' />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="min-w-[18rem] p-4 bg-white rounded-2xl">
+                <div className="flex flex-col gap-4 w-full">
+                  {/* Header */}
+                  <div className="text-lg font-bold tracking-tight text-gray-900">
+                    Withdraw {token.symbol}
+                  </div>
+
+                  {/* Amount Input */}
+                  <div className="w-full">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm text-gray-600 font-medium">Amount to Withdraw</label>
+                      <button
+                        onClick={() => setAmount(token.total)}
+                        className="text-xs px-2 py-1 rounded-xl bg-primary-500 hover:bg-primary-600 text-gray-900 font-semibold transition-colors"
+                      >
+                        Max
+                      </button>
+                    </div>
+                    <Input
+                      type="number"
+                      value={amount}
+                      onValueChange={(val) => {
+                        setAmount(val);
+                        setError(null);
+                      }}
+                      placeholder="0.00"
+                      endContent={<span className="text-gray-600">{token.symbol}</span>}
+                      classNames={{
+                        input: "bg-white",
+                        inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"
+                      }}
+                    />
+                  </div>
+
+                  {/* Address Input */}
+                  <div className="w-full">
+                    <label className="text-sm text-gray-600 font-medium mb-2 block">Recipient Address</label>
+                    <Input
+                      type="text"
+                      value={address}
+                      onValueChange={(val) => {
+                        setAddress(val);
+                        setError(null);
+                      }}
+                      placeholder="Solana wallet address"
+                      classNames={{
+                        input: "bg-white",
+                        inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"
+                      }}
+                    />
+                  </div>
+
+                  {error && <div className="text-red-500 text-sm -mt-2">{error}</div>}
+
+                  <Button
+                    onPress={handleSend}
+                    isDisabled={isSending || !amount || !address}
+                    isLoading={isSending}
+                    className="bg-primary-500 hover:bg-primary-600 text-gray-900 font-bold tracking-tight w-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
+                  >
+                    {isSending ? 'Processing...' : 'Withdraw Funds'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {/* Success Dialog */}
+      <Portal>
+        <AnimatePresence mode="wait">
+          {showSuccessDialog && (
+            <motion.div
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 1 }}
+              className='z-50 fixed top-0 left-0 w-screen h-screen'
+              style={{ position: 'fixed', top: 0, left: 0 }}
+            >
+              {/* Backdrop with blur */}
+              <div
+                ref={backdropRef}
+                className='absolute inset-0 bg-white/50'
+                onClick={() => setShowSuccessDialog(false)}
+                style={{
+                  backdropFilter: 'blur(0px)',
+                  opacity: 0
+                }}
+              />
+
+              <div className='w-full h-full flex items-center justify-center p-4'>
+                <motion.div
+                  initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                  animate={{
+                    scale: 1,
+                    y: 0,
+                    opacity: 1
+                  }}
+                  exit={{
+                    scale: 0.95,
+                    y: 10,
+                    opacity: 0,
+                    transition: {
+                      duration: 0.1,
+                      ease: "easeOut"
+                    }
+                  }}
+                  transition={{
+                    duration: 0.25,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25,
+                    mass: 1
+                  }}
+                  className='max-w-md w-full p-6 relative nice-card'
+                >
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 20
+                      }}
+                      className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"
+                    >
+                      <CheckCircleIcon className="w-10 h-10 text-green-500" />
+                    </motion.div>
+
+                    <div className="space-y-1">
+                      <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                        Woohoo! 🎉
+                      </h2>
+                      <p className="text-gray-500 text-sm">
+                        Your funds are on their way to their new home
+                      </p>
+                    </div>
+
+                    {/* Token Amount Info */}
+                    <div className="flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center flex-shrink-0 border border-gray-100">
+                        {token.imageUrl ? (
+                          <img
+                            src={token.imageUrl}
+                            alt={token.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl">💰</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xl font-bold tracking-tight text-gray-900">
+                            {amount.toLocaleString('en-US', { minimumFractionDigits: token.decimals === 6 ? 2 : 4, maximumFractionDigits: token.decimals === 6 ? 2 : 4 })}
+                          </span>
+                          <span className="text-base font-medium text-gray-500">
+                            {token.symbol}
+                          </span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          ≈ ${(amount * token.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Transaction Details */}
+                    <div className="w-full space-y-2">
+                      {/* Recipient Address */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Sent to</span>
+                        <span className="font-medium text-gray-900">
+                          {shortenAddress(address, 4, 4)}
+                        </span>
+                      </div>
+
+                      {/* Transaction Hash */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Transaction</span>
+                        <a
+                          href={getExplorerTxLink(lastTxSignature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
+                        >
+                          {shortenAddress(lastTxSignature, 4, 4)}
+                          <ExternalLinkIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        </a>
+                      </div>
+
+                      <div className="pt-1 text-xs text-center text-gray-400">
+                        Click the transaction hash to view more details ✨
+                      </div>
+                    </div>
+
+                    <BounceButton
+                      className="tracking-tight font-semibold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full mt-4"
+                      onClick={() => setShowSuccessDialog(false)}
+
+                    >
+                      Back to Wallet
+                    </BounceButton>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Portal>
+    </>
   )
 }
 
