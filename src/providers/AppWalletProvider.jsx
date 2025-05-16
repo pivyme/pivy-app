@@ -14,6 +14,7 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import '@/styles/wallet.css'
 
 export default function AppWalletProvider({ children }) {
   const network =
@@ -28,7 +29,7 @@ export default function AppWalletProvider({ children }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect={true}>
+      <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <AuthProvider>{children}</AuthProvider>
         </WalletModalProvider>

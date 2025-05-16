@@ -109,7 +109,7 @@ export default function LoginPage() {
       <AnimateComponent>
         <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
           <AnimateComponent delay={200}>
-            <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[16rem]' />
+            <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
           </AnimateComponent>
 
           <AnimateComponent delay={400}>
@@ -119,8 +119,12 @@ export default function LoginPage() {
           </AnimateComponent>
           <AnimateComponent delay={500}>
             <p className='mt-4'>
-              The self-custodial payment toolkit for Solana that keeps your real wallet <span className='font-semibold text-primary-600'>private.</span>
+              The self-custodial payment toolkit for Solana that keeps your real wallet <span className='font-semibold text-primary-600'>private</span> using <span className='font-semibold text-primary-600'>Stealth Addresses.</span>
             </p>
+            <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
+              <span className='text-xs font-medium text-primary-700'>✨ The First Ever Stealth Address Implementation on Solana</span>
+              <div className='w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse'/>
+            </div>
           </AnimateComponent>
 
           {/* Link Showcase */}

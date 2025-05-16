@@ -1,0 +1,114 @@
+/* Base Button Styles */
+.wallet-adapter-button {
+  @apply rounded-xl w-full flex gap-2 px-4 py-3 text-sm items-center justify-center font-semibold tracking-tight transition-colors;
+}
+
+.wallet-adapter-button-trigger {
+  @apply bg-primary-500 text-gray-900 font-bold tracking-tight hover:bg-primary-600 transition-colors;
+}
+
+.wallet-adapter-button:not([disabled]):focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+  @apply bg-gray-50;
+}
+
+.wallet-adapter-button[disabled] {
+  @apply bg-gray-50 text-gray-400 cursor-not-allowed;
+}
+
+/* Button Icons */
+.wallet-adapter-button-end-icon,
+.wallet-adapter-button-start-icon,
+.wallet-adapter-button-end-icon img,
+.wallet-adapter-button-start-icon img {
+  @apply flex items-center justify-center w-5 h-5;
+}
+
+.wallet-adapter-button-end-icon {
+  @apply ml-2;
+}
+
+.wallet-adapter-button-start-icon {
+  @apply mr-2;
+}
+
+/* Dropdown Styles */
+.wallet-adapter-dropdown {
+  @apply relative inline-block;
+}
+
+.wallet-adapter-dropdown-list {
+  @apply absolute z-50 grid gap-1 p-2 mt-2 right-0 bg-white rounded-2xl shadow-lg border border-gray-100
+  opacity-0 invisible transition-all duration-200 min-w-[200px];
+}
+
+.wallet-adapter-dropdown-list-active {
+  @apply opacity-100 visible translate-y-1;
+}
+
+.wallet-adapter-dropdown-list-item {
+  @apply flex items-center justify-between px-3 py-2 text-sm font-semibold tracking-tight text-gray-900 rounded-xl
+  hover:bg-gray-50 transition-colors cursor-pointer;
+}
+
+/* Modal Styles */
+.wallet-adapter-modal {
+  @apply fixed inset-0 z-50 opacity-0 transition-opacity duration-200;
+}
+
+.wallet-adapter-modal.wallet-adapter-modal-fade-in {
+  @apply opacity-100;
+}
+
+.wallet-adapter-modal-button-close {
+  @apply absolute top-4 right-4 p-2 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors
+  flex items-center justify-center cursor-pointer border border-gray-100;
+}
+
+.wallet-adapter-modal-overlay {
+  @apply fixed inset-0 bg-black/40 backdrop-blur-sm;
+}
+
+.wallet-adapter-modal-container {
+  @apply flex min-h-screen items-center justify-center p-4;
+}
+
+.wallet-adapter-modal-wrapper {
+  @apply relative flex flex-col w-full max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden;
+}
+
+.wallet-adapter-modal-title {
+  @apply text-2xl font-bold tracking-tight text-gray-900 text-center pt-8 px-6 pb-2;
+}
+
+/* Modal List */
+.wallet-adapter-modal-list {
+  @apply m-0 p-4 w-full space-y-2 bg-white;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  @apply text-left justify-between bg-white hover:bg-gray-50 text-gray-900 border border-gray-100 font-semibold tracking-tight;
+}
+
+/* More Button */
+.wallet-adapter-modal-list-more {
+  @apply px-4 py-2 text-sm font-semibold tracking-tight text-gray-700 hover:text-gray-900 cursor-pointer 
+  flex items-center self-end bg-transparent transition-colors;
+}
+
+.wallet-adapter-modal-middle {
+  @apply w-full flex flex-col items-center px-6 pb-6 bg-white;
+}
+
+.wallet-adapter-modal-middle-button {
+  @apply w-full mt-4 px-4 py-3 bg-primary-500 text-gray-900 rounded-xl font-bold tracking-tight
+  hover:bg-primary-600 transition-colors cursor-pointer text-center;
+}
+
+/* Hide QR Code */
+.css-14cme0a {
+  @apply hidden;
+} 

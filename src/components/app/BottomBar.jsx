@@ -65,7 +65,7 @@ export default function BottomBar({
     <AnimatePresence mode="wait">
       {shouldShow && (
         <motion.div 
-          className='fixed bottom-0 left-0 right-0 bottom-[10rem] z-50'
+          className='fixed bottom-0 left-0 right-0 bottom-[1rem] z-50'
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}

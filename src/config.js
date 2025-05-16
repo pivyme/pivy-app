@@ -30,6 +30,7 @@ export const CHAINS = {
   MAINNET: {
     id: "MAINNET",
     rpcUrl: import.meta.env.VITE_SOLANA_RPC_MAINNET,
+    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_MAINNET,
     tokens: [
       {
         name: "SOL",
@@ -52,6 +53,7 @@ export const CHAINS = {
   DEVNET: {
     id: "DEVNET",
     rpcUrl: import.meta.env.VITE_SOLANA_RPC_DEVNET,
+    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_DEVNET,
     tokens: [
       {
         name: "USDC",

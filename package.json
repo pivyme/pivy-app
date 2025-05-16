@@ -28,6 +28,7 @@
     "@web3auth/sign-in-with-solana": "^5.0.0",
     "axios": "^1.9.0",
     "clsx": "^2.1.1",
+    "crypto": "^1.0.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.11.3",
     "gsap": "npm:@gsap/shockingly@^3.12.7",
@@ -54,6 +55,7 @@
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.5",
+    "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-svgr": "^4.3.0"
   }
 }
