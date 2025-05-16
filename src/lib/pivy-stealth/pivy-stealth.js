@@ -19,6 +19,7 @@ import BN from 'bn.js';
 import bs58 from 'bs58';
 import { PIVY_STEALTH_IDL } from './IDL.js';
 import { randomBytes } from 'crypto';
+import { ethers, hexlify } from 'ethers';
 
 class StealthSigner {
   constructor(sBytes) {
@@ -107,6 +108,11 @@ function scalarFromSeed(seed32) {
   const h = sha512(seed32);
   return bytesToNumberLE(clamp(h.slice(0, 32)));
 }
+
+export function solanaAddressToHex(solanaAddress) {
+  return hexlify(bs58.decode(solanaAddress));
+}
+
 
 export async function deriveStealthPub(metaSpend58, metaView58, ephPriv32) {
   // 1. tweak = H(e ⨁ B) mod L
@@ -411,4 +417,44 @@ export function loadPivyProgram(connection, wallet, programId) {
   const provider = new anchor.AnchorProvider(
     connection, wallet, anchor.AnchorProvider.defaultOptions());
   return new anchor.Program(PIVY_STEALTH_IDL, programId, provider);
+}
+
+export const prepareUsdcEvmPayment = async ({
+  metaSpendPub,
+  metaViewPub,
+  mint
+}) => {
+  const eph = Keypair.generate()
+  const ephPriv32 = eph.secretKey.slice(0, 32);
+  const stealthOwner = await deriveStealthPub(
+    metaSpendPub,
+    metaViewPub,
+    ephPriv32
+  )
+
+  const stealthAta = getAssociatedTokenAddressSync(
+    mint,
+    stealthOwner
+  )
+
+  const encryptedPayload = await encryptEphemeralPrivKey(
+    ephPriv32,
+    metaViewPub
+  )
+
+  return {
+    stealthOwner,
+    stealthAta,
+    encryptedPayload
+  }
+}
+
+// For evm usdc stuff, CCTP
+async function depositForBurn(amount, destDomain, recipientBytes32) {
+  const TM_ABI = ['function depositForBurn(uint256,uint32,bytes32,address)'];
+  const messenger = new ethers.Contract(BASE_TOKEN_MESSENGER, TM_ABI, evmWallet);
+  const tx = await messenger.depositForBurn(amount, destDomain, recipientBytes32, USDC_BASE_ADDRESS);
+  await tx.wait();
+  console.log('✓ depositForBurn tx:', tx.hash);
+  return tx.hash;
 }

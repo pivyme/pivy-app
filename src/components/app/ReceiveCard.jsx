@@ -84,6 +84,7 @@ const LinkTab = () => {
 
   const displayLink = `${me?.username}.pivy.me`
   const actualLink = `${me?.username}.${window.location.origin.replace('http://', '').replace('https://', '')}`
+  
   return (
     <div>
       <div className='bg-background-600/60 rounded-xl p-4 flex flex-row items-center justify-between'>

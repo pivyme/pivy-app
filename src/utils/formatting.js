@@ -84,21 +84,27 @@ const toSuperscript = (num) => {
     .join("");
 };
 
-export const formatUiNumber = (
-  num,
-  currency = "",
-  options = {}
-) => {
-  try {
-    const {
-      round = false,
-      exactDecimals = false,
-      maxDecimals = 9,
-      defaultDecimals,
-      humanize = false,
-      humanizeThreshold = 10000,
-    } = options;
+/**
+ * @typedef {Object} FormatOptions
+ * @property {boolean} round - Whether to round the number
+ * @property {boolean} exactDecimals - Whether to show exact decimal places
+ * @property {number} maxDecimals - Maximum number of decimal places
+ * @property {number} [defaultDecimals] - Default number of decimal places
+ * @property {boolean} humanize - Whether to humanize large numbers
+ * @property {number} humanizeThreshold - Threshold for humanizing numbers
+ */
 
+export const formatUiNumber = (num, currency = "", options = {
+  round: false,
+  exactDecimals: false,
+  maxDecimals: 9,
+  defaultDecimals: 2,
+  humanize: false,
+  humanizeThreshold: 10000,
+}) => {
+  try {
+    const { round, exactDecimals, maxDecimals, defaultDecimals, humanize, humanizeThreshold } = options;
+    
     const value = typeof num === "string" ? parseFloat(num) : num || 0;
     const currencyStr = currency ? ` ${currency.trim()}` : "";
 
@@ -143,19 +149,43 @@ export const formatUiNumber = (
       })}${currencyStr}`;
     }
 
-    const fixedValue =
-      defaultDecimals !== undefined
-        ? value.toFixed(defaultDecimals)
-        : value.toFixed(2).replace(/\.?0+$/, "");
+    // Determine the number of decimal places to show
+    let decimalsToShow = defaultDecimals !== undefined ? defaultDecimals : 2;
 
+    // For very small numbers, ensure we show enough decimal places
+    if (Math.abs(value) < 1 && Math.abs(value) > 0) {
+      // Count leading zeros after decimal point
+      const valueStr = value.toString();
+      if (valueStr.includes('e-')) {
+        // Handle scientific notation
+        const exponent = parseInt(valueStr.split('e-')[1]);
+        decimalsToShow = Math.min(Math.max(exponent, decimalsToShow), maxDecimals);
+      } else if (valueStr.includes('.')) {
+        const decimalPart = valueStr.split('.')[1];
+        let leadingZeros = 0;
+        for (let i = 0; i < decimalPart.length; i++) {
+          if (decimalPart[i] === '0') {
+            leadingZeros++;
+          } else {
+            break;
+          }
+        }
+        decimalsToShow = Math.min(Math.max(leadingZeros + 1, decimalsToShow), maxDecimals);
+      }
+    }
+
+    const fixedValue = value.toFixed(decimalsToShow);
     const [wholePart, decimalPart] = fixedValue.split(".");
     const formattedWholePart = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-    return decimalPart
-      ? `${formattedWholePart}.${decimalPart}${currencyStr}`
+    // Remove trailing zeros after decimal point if they're all zeros
+    const trimmedDecimalPart = decimalPart ? decimalPart.replace(/0+$/, "") : "";
+
+    return trimmedDecimalPart
+      ? `${formattedWholePart}.${trimmedDecimalPart}${currencyStr}`
       : defaultDecimals
-      ? `${formattedWholePart}.${"0".repeat(defaultDecimals)}${currencyStr}`
-      : `${formattedWholePart}${currencyStr}`;
+        ? `${formattedWholePart}.${"0".repeat(defaultDecimals)}${currencyStr}`
+        : `${formattedWholePart}${currencyStr}`;
   } catch (error) {
     const fallbackValue = num?.toString() || "0";
     return currency ? `${fallbackValue} ${currency.trim()}` : fallbackValue;

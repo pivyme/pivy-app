@@ -9,10 +9,14 @@ import { NATIVE_MINT } from '@solana/spl-token'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { SparklesIcon } from 'lucide-react'
 import PayButton from '@/components/app/PayButton'
-import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon } from 'lucide-react'
+import { CheckCircle2Icon, ExternalLinkIcon, DownloadIcon, ArrowRightIcon } from 'lucide-react'
 import BounceButton from '@/components/elements/BounceButton'
 import ColorCard from '@/components/elements/ColorCard'
 import { getExplorerTxLink } from '@/utils/misc'
+import SpecialThemeBackground from '@/components/app/SpecialThemeBackground'
+import { SPECIAL_THEMES } from '../config'
+import UsdcEvmPayment from '@/components/app/UsdcEvmPayment'
+import { formatUiNumber } from '@/utils/formatting'
 
 export default function ReceivePage({
   username: propUsername,
@@ -53,7 +57,9 @@ export default function ReceivePage({
 
         // Create a minimum loading time promise
         const minimumLoadingTime = new Promise(resolve =>
-          setTimeout(resolve, 2000)
+          // TODO: Enable this later
+          // setTimeout(resolve, 2000)
+          setTimeout(resolve, 0)
         );
 
         // Fetch data promise
@@ -116,6 +122,7 @@ export default function ReceivePage({
   const [selectedToken, setSelectedToken] = useState(null)
   const [tokenSearchValue, setTokenSearchValue] = useState("")
   const [amount, setAmount] = useState("")
+  const [isUsdcMode, setIsUsdcMode] = useState(false)
 
   const normalizeTokenData = (token) => {
     const isNativeToken = 'symbol' in token && !('token' in token);
@@ -199,7 +206,7 @@ export default function ReceivePage({
         // Default to SOL for non-fixed amounts
         setSelectedToken(normalizeTokenData(balances.data.nativeBalance))
         setTokenSearchValue(balances.data.nativeBalance.name)
-        setAmount("0.01")
+        setAmount("")
       }
     } catch (error) {
       console.error('Error fetching balances:', error);
@@ -287,20 +294,23 @@ export default function ReceivePage({
                     <span className="text-gray-600">To</span>
                     <span className="font-medium text-gray-900">{stealthData.username}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">From</span>
-                    <span className="font-medium text-gray-900">{publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}</span>
-                  </div>
+                  {publicKey ? (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">From</span>
+                      <span className="font-medium text-gray-900">{publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">From</span>
+                      <span className="font-medium text-gray-900">EVM Wallet</span>
+                    </div>
+                  )}
                   {stealthData?.linkData?.label && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Label</span>
                       <span className="font-medium text-gray-900">{stealthData.linkData.label}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Network</span>
-                    <span className="font-medium text-gray-900">Solana</span>
-                  </div>
                 </div>
               </div>
 
@@ -383,10 +393,58 @@ export default function ReceivePage({
 
   return (
     <div className='w-full min-h-screen flex flex-col items-center justify-center'>
-      <div className='flex flex-col items-center w-full max-w-xl px-2'>
-        <AnimateComponent>
-          <img src="/pivy-horizontal-logo.svg" alt="Privy" className='w-[12rem] mb-4' />
-        </AnimateComponent>
+      <SpecialThemeBackground
+        specialTheme={stealthData?.linkData?.specialTheme || 'default'}
+      />
+      <div className='flex flex-col items-center w-full max-w-xl px-2 z-20 relative'>
+        <AnimatePresence mode="wait">
+          {stealthData?.linkData?.specialTheme &&
+            SPECIAL_THEMES.find(theme => theme.id === stealthData?.linkData?.specialTheme) ? (
+            <motion.img
+              key="special-logo"
+              src={SPECIAL_THEMES.find(theme => theme.id === stealthData?.linkData?.specialTheme)?.headerLogo}
+              alt="Logo"
+              className='w-[17rem] mb-4'
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                transition: {
+                  duration: 0.3
+                }
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.5,
+                transition: {
+                  duration: 0.2
+                }
+              }}
+            />
+          ) : (
+            <motion.img
+              key="default-logo"
+              src="/pivy-horizontal-logo.svg"
+              alt="Privy"
+              className='w-[12rem] mb-4 z-20'
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                transition: {
+                  duration: 0.3
+                }
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.5,
+                transition: {
+                  duration: 0.2
+                }
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         {isInitializing ? (
           <AnimateComponent delay={100}>
@@ -602,192 +660,300 @@ export default function ReceivePage({
 
               {connected ? (
                 <div className='flex flex-col gap-6'>
-                  {/* Token Selection */}
+                  {/* Payment Method Selection */}
                   <AnimateComponent delay={400}>
-                    <div className='bg-white p-6 rounded-2xl border border-gray-200'>
-                      <div className='flex justify-between items-end mb-4'>
-                        <label className='text-lg font-semibold text-gray-900'>
-                          {stealthData?.linkData?.amountType === 'FIXED' ? '🎯 Selected Token' : '💫 Choose Token'}
-                        </label>
-                        {selectedToken && (
-                          <p className='text-sm text-gray-600'>
-                            Balance: <span className='font-semibold text-gray-900'>{selectedToken?.amount} {selectedToken?.symbol}</span>
-                          </p>
-                        )}
+                    <div className='space-y-6'>
+                      {/* Tabs */}
+                      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                        <button
+                          className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
+                            !isUsdcMode
+                              ? 'bg-white shadow-sm text-gray-900'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                          onClick={() => setIsUsdcMode(false)}
+                        >
+                          Solana Tokens
+                        </button>
+                        <button
+                          className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
+                            isUsdcMode
+                              ? 'bg-white shadow-sm text-gray-900'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                          onClick={() => setIsUsdcMode(true)}
+                        >
+                          USDC (Any Chain)
+                        </button>
                       </div>
 
-                      {stealthData?.linkData?.amountType === 'FIXED' ? (
-                        <div className='p-4 border border-gray-200 rounded-xl bg-gray-50/80 flex items-center gap-3'>
-                          {stealthData.linkData.mint?.imageUrl ? (
-                            <img
-                              src={stealthData.linkData.mint.imageUrl}
-                              alt={stealthData.linkData.mint.symbol}
-                              className="w-8 h-8 rounded-full"
-                            />
-                          ) : (
-                            <span className='text-2xl'>💎</span>
-                          )}
-                          <div>
-                            <p className='font-medium text-gray-900'>{stealthData.linkData.mint?.name || 'Token'}</p>
-                            <p className='text-sm text-gray-600'>{stealthData.linkData.mint?.symbol}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        tokenBalances && (
-                          <Autocomplete
-                            className="w-full"
-                            defaultItems={[
-                              tokenBalances.nativeBalance,
-                              ...(tokenBalances.splBalance || [])
-                            ]}
-                            size='lg'
-                            placeholder="Search for a token"
-                            selectedKey={selectedToken?.address}
-                            onSelectionChange={(key) => {
-                              const token = [tokenBalances.nativeBalance, ...(tokenBalances.splBalance || [])]
-                                .find(t => {
-                                  if (key === 'native') return 'symbol' in t && t.symbol === 'SOL';
-                                  return t.mint === key;
-                                });
-                              setSelectedToken(token ? normalizeTokenData(token) : null);
-                              if (token) {
-                                const isNativeToken = 'symbol' in token && !('token' in token);
-                                setTokenSearchValue(isNativeToken ? token.name : token.token.name);
-                              }
-                              setAmount("");
-                            }}
-                            onInputChange={(value) => {
-                              setTokenSearchValue(value);
-                              if (!value) {
-                                setSelectedToken(null);
-                              }
-                            }}
-                            value={selectedToken?.name || tokenSearchValue}
-                            startContent={selectedToken && (
-                              selectedToken.imageUrl ? (
-                                <img
-                                  alt={selectedToken.name}
-                                  className="w-8 h-8 p-0.5 object-cover aspect-square"
-                                  src={selectedToken.imageUrl}
-                                />
-                              ) : (
-                                <div className="w-8 h-8 flex items-center justify-center">
-                                  💰
-                                </div>
-                              )
-                            )}
-                          >
-                            {(item) => {
-                              const normalizedToken = normalizeTokenData(item);
-                              return (
-                                <AutocompleteItem
-                                  key={normalizedToken.address}
-                                  className="data-[selected=true]:bg-primary-500/20"
-                                  startContent={
-                                    normalizedToken.imageUrl ? (
-                                      <img
-                                        alt={normalizedToken.name}
-                                        className="w-8 h-8 p-1 object-cover aspect-square"
-                                        src={normalizedToken.imageUrl}
-                                      />
-                                    ) : (
-                                      <div className="w-8 h-8 flex items-center justify-center">
-                                        💰
-                                      </div>
-                                    )
-                                  }
-                                  textValue={normalizedToken.name}
-                                >
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium">{normalizedToken.name}</span>
-                                    <span className="text-xs text-gray-500">
-                                      Balance: {normalizedToken.amount} {normalizedToken.symbol}
-                                    </span>
-                                  </div>
-                                </AutocompleteItem>
-                              );
-                            }}
-                          </Autocomplete>
-                        )
-                      )}
-                    </div>
-                  </AnimateComponent>
-
-                  {/* Amount Input */}
-                  {selectedToken && (
-                    <AnimateComponent delay={500}>
-                      <div className='bg-white p-6 rounded-2xl border border-gray-200'>
-                        <label className='text-lg font-semibold text-gray-900 mb-4 block'>
-                          {stealthData?.linkData?.amountType === 'FIXED' ? '🎯 Required Amount' : '✨ Amount'}
-                        </label>
-                        <div className='relative'>
-                          <input
-                            type="text"
-                            value={stealthData?.linkData?.amountType === 'FIXED'
-                              ? stealthData.linkData.amount.toString()
-                              : amount
+                      {/* Content based on selected mode */}
+                      <AnimatePresence mode="wait" initial={false}>
+                      {isUsdcMode ? (
+                        <motion.div
+                          key="usdc-mode"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ 
+                            opacity: 1, 
+                            scale: 1,
+                            transition: {
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25,
+                              mass: 1
                             }
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder="0.00"
-                            disabled={stealthData?.linkData?.amountType === 'FIXED'}
-                            className={`w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-medium tracking-tight outline-none transition-all
-                              ${stealthData?.linkData?.amountType === 'FIXED'
-                                ? 'opacity-75 cursor-not-allowed'
-                                : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
-                              }`}
-                          />
-                          <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2'>
-                            {stealthData?.linkData?.amountType !== 'FIXED' && (
-                              <button
-                                onClick={() => setAmount(selectedToken.amount.toString())}
-                                className='px-3 py-1 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-xl transition-colors'
-                              >
-                                MAX
-                              </button>
-                            )}
-                            <span className='font-medium text-gray-700'>
-                              {selectedToken.symbol}
-                            </span>
+                          }}
+                          exit={{ 
+                            opacity: 0, 
+                            scale: 0.9,
+                            transition: {
+                              duration: 0.15
+                            }
+                          }}
+                        >
+                          <div className="mb-6 flex items-center">
+                            <button
+                              onClick={() => setIsUsdcMode(false)}
+                              className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1.5 group"
+                            >
+                              <ArrowRightIcon className="w-4 h-4 rotate-180" />
+                              <span>Back</span>
+                            </button>
                           </div>
-                        </div>
-                      </div>
-                    </AnimateComponent>
-                  )}
+                          <UsdcEvmPayment
+                            amount={amount}
+                            setAmount={setAmount}
+                            stealthData={stealthData}
+                            onSuccess={(details) => {
+                              console.log('USDC payment success:', details)
+                              setPaymentSuccess(details)
+                            }}
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="sol-mode"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ 
+                            opacity: 1, 
+                            scale: 1,
+                            transition: {
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25,
+                              mass: 1
+                            }
+                          }}
+                          exit={{ 
+                            opacity: 0, 
+                            scale: 0.9,
+                            transition: {
+                              duration: 0.15
+                            }
+                          }}
+                          className='space-y-4'
+                        >
+                          {/* Token Balance Display */}
+                          {selectedToken && (
+                            <div className="flex justify-end">
+                              <p className='text-sm text-gray-600'>
+                                Balance: <span className='font-semibold text-gray-900'>{formatUiNumber(selectedToken?.amount, "")} {selectedToken?.symbol}</span>
+                              </p>
+                            </div>
+                          )}
 
-                  <AnimateComponent delay={600} className='w-full'>
-                    <PayButton
-                      selectedToken={selectedToken}
-                      amount={amount}
-                      stealthData={stealthData}
-                      onSuccess={(sig) => {
-                        console.log('Payment successful:', sig)
-                        setPaymentSuccess({
-                          signature: sig,
-                          amount: amount,
-                          token: selectedToken,
-                          timestamp: Date.now()
-                        })
-                      }}
-                      onError={(error) => {
-                        console.error('Payment failed:', error)
-                      }}
-                    />
+                          {/* Token Selection */}
+                          {tokenBalances && (
+                            <Autocomplete
+                              className="w-full"
+                              defaultItems={[
+                                tokenBalances.nativeBalance,
+                                ...(tokenBalances.splBalance || [])
+                              ]}
+                              size='lg'
+                              placeholder="Search for a token"
+                              selectedKey={selectedToken?.address}
+                              onSelectionChange={(key) => {
+                                const token = [tokenBalances.nativeBalance, ...(tokenBalances.splBalance || [])]
+                                  .find(t => {
+                                    if (key === 'native') return 'symbol' in t && t.symbol === 'SOL';
+                                    return t.mint === key;
+                                  });
+                                setSelectedToken(token ? normalizeTokenData(token) : null);
+                                if (token) {
+                                  const isNativeToken = 'symbol' in token && !('token' in token);
+                                  setTokenSearchValue(isNativeToken ? token.name : token.token.name);
+                                }
+                                setAmount("");
+                              }}
+                              onInputChange={(value) => {
+                                setTokenSearchValue(value);
+                                if (!value) {
+                                  setSelectedToken(null);
+                                }
+                              }}
+                              value={selectedToken?.name || tokenSearchValue}
+                              startContent={selectedToken && (
+                                selectedToken.imageUrl ? (
+                                  <img
+                                    alt={selectedToken.name}
+                                    className="w-8 h-8 p-0.5 object-cover aspect-square"
+                                    src={selectedToken.imageUrl}
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 flex items-center justify-center">
+                                    💰
+                                  </div>
+                                )
+                              )}
+                            >
+                              {(item) => {
+                                const normalizedToken = normalizeTokenData(item);
+                                return (
+                                  <AutocompleteItem
+                                    key={normalizedToken.address}
+                                    className="data-[selected=true]:bg-primary-500/20"
+                                    startContent={
+                                      normalizedToken.imageUrl ? (
+                                        <img
+                                          alt={normalizedToken.name}
+                                          className="w-8 h-8 p-1 object-cover aspect-square"
+                                          src={normalizedToken.imageUrl}
+                                        />
+                                      ) : (
+                                        <div className="w-8 h-8 flex items-center justify-center">
+                                          💰
+                                        </div>
+                                      )
+                                    }
+                                    textValue={normalizedToken.name}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium">{normalizedToken.name}</span>
+                                      <span className="text-xs text-gray-500">
+                                        Balance: {normalizedToken.amount} {normalizedToken.symbol}
+                                      </span>
+                                    </div>
+                                  </AutocompleteItem>
+                                );
+                              }}
+                            </Autocomplete>
+                          )}
+
+                          {/* Amount Input */}
+                          {selectedToken && (
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="0.00"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-medium tracking-tight outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                              />
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                <button
+                                  onClick={() => setAmount(selectedToken.amount.toString())}
+                                  className="px-3 py-1 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-xl transition-colors"
+                                >
+                                  MAX
+                                </button>
+                                <span className="font-medium text-gray-700">
+                                  {selectedToken.symbol}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Pay Button */}
+                          {selectedToken && (
+                            <PayButton
+                              selectedToken={selectedToken}
+                              amount={amount}
+                              stealthData={stealthData}
+                              onSuccess={(sig) => {
+                                console.log('Payment successful:', sig)
+                                setPaymentSuccess({
+                                  signature: sig,
+                                  amount: amount,
+                                  token: selectedToken,
+                                  timestamp: Date.now()
+                                })
+                              }}
+                              onError={(error) => {
+                                console.error('Payment failed:', error)
+                              }}
+                            />
+                          )}
+                        </motion.div>
+                      )}
+                      </AnimatePresence>
+                    </div>
                   </AnimateComponent>
                 </div>
               ) : (
                 <AnimateComponent delay={400} className='w-full'>
-                  <BounceButton
-                    className='tracking-tight font-semibold px-8 py-6 text-lg w-full'
-                    radius='full'
-                    size='md'
-                    color='primary'
-                    onPress={() => {
-                      console.log('Connect button clicked')
-                      setVisible(true)
-                    }}
-                  >
-                    Connect Wallet to continue
-                  </BounceButton>
+                  <div className="space-y-4">
+                    {isUsdcMode ? (
+                      <div>
+                        <div className="mb-6 flex items-center">
+                          <button
+                            onClick={() => setIsUsdcMode(false)}
+                            className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1.5 group"
+                          >
+                            <ArrowRightIcon className="w-4 h-4 rotate-180" />
+                            <span>Back</span>
+                          </button>
+                        </div>
+                        <UsdcEvmPayment
+                          amount={amount}
+                          setAmount={setAmount}
+                          stealthData={stealthData}
+                          onSuccess={(details) => {
+                            console.log('USDC payment success:', details)
+                            setPaymentSuccess(details)
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <BounceButton
+                          className='tracking-tight font-semibold px-8 py-6 text-lg w-full'
+                          radius='full'
+                          size='md'
+                          color='primary'
+                          onPress={() => {
+                            console.log('Connect button clicked')
+                            setVisible(true)
+                            setIsUsdcMode(false)
+                          }}
+                        >
+                          Connect Wallet to continue
+                        </BounceButton>
+
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-200"></div>
+                          </div>
+                          <div className="relative flex justify-center text-sm">
+                            <span className="px-2 text-gray-500 bg-white">or</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setIsUsdcMode(true)}
+                          className="w-full flex items-center justify-center gap-2 py-4 text-gray-600 hover:text-gray-900 transition-colors group"
+                        >
+                          <img 
+                            src="/tokens/usdc.png" 
+                            alt="USDC" 
+                            className="w-5 h-5"
+                          />
+                          <span className="text-sm font-medium">Pay with USDC from any chain</span>
+                          <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </AnimateComponent>
               )}
               <AnimateComponent delay={700}>

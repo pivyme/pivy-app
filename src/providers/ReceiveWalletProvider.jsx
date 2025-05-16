@@ -14,11 +14,44 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+
+// EVM stuff
+import '@rainbow-me/rainbowkit/styles.css';
+import {
+  getDefaultConfig,
+  lightTheme,
+  RainbowKitProvider,
+} from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import {
+  // MAINNETS
+  mainnet,
+  base,
+  polygon,
+  bsc,
+  arbitrum,
+  avalanche,
+  optimism,
+  // TESTNETS
+  sepolia,
+  baseSepolia,
+  polygonAmoy,
+  bscTestnet,
+  arbitrumSepolia,
+  avalancheFuji,
+  optimismSepolia
+} from 'wagmi/chains';
+import {
+  QueryClientProvider,
+  QueryClient,
+} from "@tanstack/react-query";
+
 import { CHAINS } from "@/config";
 
-export default function ReceiveWalletProvider({ children }) {
-  console.log('ReceiveWalletProvider mounted');
+const queryClient = new QueryClient();
 
+export default function ReceiveWalletProvider({ children }) {
+  /* --------------------------------- SOLANA --------------------------------- */
   const network =
     import.meta.env.VITE_IS_TESTNET === "true"
       ? WalletAdapterNetwork.Devnet
@@ -39,6 +72,31 @@ export default function ReceiveWalletProvider({ children }) {
   console.log('Network:', network);
   console.log('Endpoint:', endpoint);
 
+  /* ----------------------------------- EVM ---------------------------------- */
+  const config = getDefaultConfig({
+    appName: 'PIVY',
+    projectId: 'none',
+    chains: import.meta.env.VITE_IS_TESTNET === "true" ? [sepolia, baseSepolia, polygonAmoy, bscTestnet, arbitrumSepolia, avalancheFuji, optimismSepolia] : [mainnet, base, polygon, optimism, arbitrum, bsc, avalanche],
+    ssr: false,
+  });
+
+  console.log({
+    // MAINNETS
+    mainnet,
+    base,
+    polygon,
+    arbitrum,
+    avalanche,
+    optimism,
+    // TESTNETS
+    sepolia,
+    baseSepolia,
+    polygonAmoy,
+    arbitrumSepolia,
+    avalancheFuji,
+    optimismSepolia
+  })
+
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider
@@ -46,7 +104,25 @@ export default function ReceiveWalletProvider({ children }) {
         autoConnect={true}
       >
         <WalletModalProvider>
-          {children}
+
+          <WagmiProvider config={config} reconnect={true}>
+            <QueryClientProvider client={queryClient}>
+              <RainbowKitProvider
+                modalSize="compact"
+                theme={lightTheme({
+                  borderRadius: 'large',
+                  accentColor: '#479af5',
+                  accentColorForeground: '#ffffff',
+                  fontStack: 'system',
+                  overlayBlur: 'small',
+                })}
+
+              >
+                {children}
+              </RainbowKitProvider>
+            </QueryClientProvider>
+          </WagmiProvider>
+
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
