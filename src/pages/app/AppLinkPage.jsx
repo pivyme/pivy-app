@@ -20,6 +20,15 @@ export default function AppLinkPage() {
   const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
   const networkTokens = isTestnet ? CHAINS.DEVNET.tokens : CHAINS.MAINNET.tokens
 
+  const getDisplayLink = (link) => {
+    return `pivy.me/${link.user.username}${link.tag ? `/${link.tag}` : ''}`
+  }
+
+  const getActualLink = (link) => {
+    const origin = window.location.origin
+    return `${origin}/${link.user.username}${link.tag ? `/${link.tag}` : ''}`
+  }
+
   const handleFetchLinks = async () => {
     try {
       const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/link/my-links`, {
@@ -63,7 +72,7 @@ export default function AppLinkPage() {
         clearTimeout(timeoutRef.current)
       }
       
-      await navigator.clipboard.writeText(link.url)
+      await navigator.clipboard.writeText(getActualLink(link))
       setCopiedLinkId(link.id)
       timeoutRef.current = setTimeout(() => {
         setCopiedLinkId(null)
@@ -180,7 +189,7 @@ export default function AppLinkPage() {
                           variant="light"
                           radius="full"
                           className="text-gray-400 hover:text-black"
-                          onClick={() => window.open(`https://pivy.me/${link.user.username}/${link.tag}`, '_blank')}
+                          onClick={() => window.open(getActualLink(link), '_blank')}
                         >
                           <ArrowUpRightIcon className="w-4 h-4" />
                         </Button>
@@ -192,7 +201,7 @@ export default function AppLinkPage() {
                         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5">
                           <LinkIcon className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600 font-medium flex-1">
-                            pivy.me/{link.user.username}/{link.tag}
+                            {getDisplayLink(link)}
                           </span>
                           <Button
                             isIconOnly
