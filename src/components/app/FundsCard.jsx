@@ -50,6 +50,10 @@ function TokenCard({ token, index }) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [lastTxSignature, setLastTxSignature] = useState(null)
 
+  console.log({
+    token
+  })
+
   const handleSend = async () => {
     if (isSending) return
 
@@ -470,7 +474,7 @@ function TokenCard({ token, index }) {
                           </span>
                         </div>
                         <span className="text-sm text-gray-500">
-                          ≈ ${(amount * token.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ≈ ${token.usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>

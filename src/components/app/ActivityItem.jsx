@@ -151,7 +151,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                 </div>
 
                 {/* Link Details - Only for Payment type */}
-                {activity.type === 'PAYMENT' && activity.link && (
+                {/* {activity.type === 'PAYMENT' && activity.link && (
                   <div className="flex justify-between items-center py-1.5">
                     <span className="text-gray-500">Payment Link</span>
                     <div className="flex items-center gap-2">
@@ -159,12 +159,12 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                       <span className="text-gray-900">{activity.link.label}</span>
                     </div>
                   </div>
-                )}
+                )} */}
 
-                <div className="flex justify-between items-center py-1.5">
+                {/* <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">Network</span>
                   <span className="font-medium text-gray-700">{activity.chain}</span>
-                </div>
+                </div> */}
               </div>
             </div>
           </motion.div>

@@ -58,8 +58,8 @@ export default function ReceivePage({
         // Create a minimum loading time promise
         const minimumLoadingTime = new Promise(resolve =>
           // TODO: Enable this later
-          // setTimeout(resolve, 2000)
-          setTimeout(resolve, 0)
+          setTimeout(resolve, 2000)
+          // setTimeout(resolve, 0)
         );
 
         // Fetch data promise
