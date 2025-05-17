@@ -136,6 +136,8 @@ export const RESTRICTED_USERNAME = [
   "privacy",
   "about",
   "contact",
+  "pivy",
+  "tokens"
 ]
 
 export const USDC_CONTRACT_ADDRESS = {
