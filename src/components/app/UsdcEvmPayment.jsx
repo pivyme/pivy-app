@@ -191,6 +191,7 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
         amount: amountInWei.toString(),
         stealthAta: prepareData.stealthAta.toBase58(),
         stealthOwnerPub: prepareData.stealthOwner.toBase58(),
+        ephPub: prepareData.ephPub.toBase58(),
 
         attestation: attestation,
 

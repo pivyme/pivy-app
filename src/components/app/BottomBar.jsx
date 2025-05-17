@@ -45,13 +45,13 @@ const NAVIGATION_ITEMS = [
     activeColor: 'text-secondary-600',
     pillColor: 'bg-secondary-50'
   },
-  {
-    label: 'Alerts',
-    icon: <BellIcon className='w-5 h-5' />,
-    href: '/alerts',
-    activeColor: 'text-warning-600',
-    pillColor: 'bg-warning-50'
-  },
+  // {
+  //   label: 'Alerts',
+  //   icon: <BellIcon className='w-5 h-5' />,
+  //   href: '/alerts',
+  //   activeColor: 'text-warning-600',
+  //   pillColor: 'bg-warning-50'
+  // },
 ]
 
 export default function BottomBar({
@@ -77,7 +77,7 @@ export default function BottomBar({
         >
           <div className='container w-fit mx-auto'>
             <div className='mx-2 mb-4'>
-              <div className='bg-white shadow-lg rounded-full p-1 flex items-center justify-between'>
+              <div className='bg-white shadow-lg rounded-full p-1 flex items-center justify-between gap-2'>
                 {NAVIGATION_ITEMS.map((item) => (
                   <NavItem
                     key={item.label}

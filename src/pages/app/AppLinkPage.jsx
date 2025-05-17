@@ -1,17 +1,20 @@
 import { useAuth } from '@/providers/AuthProvider'
 import axios from 'axios'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon } from 'lucide-react'
 import { COLORS, CHAINS, SPECIAL_THEMES } from '@/config'
 import ColorCard from '@/components/elements/ColorCard'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { linkEvents } from '@/lib/events'
+import { AnimatePresence, motion } from 'framer-motion'
 
 export default function AppLinkPage() {
   const { accessToken } = useAuth()
   const [links, setLinks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [copiedLinkId, setCopiedLinkId] = useState(null)
+  const timeoutRef = useRef(null)
 
   // Get tokens based on environment
   const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
@@ -54,10 +57,30 @@ export default function AppLinkPage() {
     return () => unsubscribe()
   }, [])
 
-  const handleCopyLink = (link) => {
-    const url = `pivy.me/${link.user.username}/${link.tag}`
-    navigator.clipboard.writeText(url)
+  const handleCopyLink = async (link) => {
+    try {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      
+      await navigator.clipboard.writeText(link.url)
+      setCopiedLinkId(link.id)
+      timeoutRef.current = setTimeout(() => {
+        setCopiedLinkId(null)
+        timeoutRef.current = null
+      }, 1500)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   const getPaymentTypeLabel = (link) => {
     if (link.type === 'DOWNLOAD') return 'File Download'
@@ -178,8 +201,41 @@ export default function AppLinkPage() {
                             size="sm"
                             className="text-gray-500 hover:text-blackbg-white"
                             onClick={() => handleCopyLink(link)}
+                            isDisabled={copiedLinkId === link.id}
                           >
-                            <CopyIcon className="w-3.5 h-3.5" />
+                            <AnimatePresence mode="wait">
+                              <motion.div
+                                key={copiedLinkId === link.id ? 'check' : 'copy'}
+                                initial={{ opacity: 0, scale: 0.7 }}
+                                animate={{ 
+                                  opacity: 1, 
+                                  scale: 1,
+                                  rotate: copiedLinkId === link.id ? [0, 10, -5, 0] : 0
+                                }}
+                                exit={{ opacity: 0, scale: 0.7 }}
+                                transition={{
+                                  duration: 0.15,
+                                  ease: [0.23, 1.2, 0.32, 1],
+                                }}
+                              >
+                                {copiedLinkId === link.id ? (
+                                  <svg 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="3" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    className="w-3.5 h-3.5 text-green-500"
+                                  >
+                                    <path d="M20 6L9 17l-5-5"/>
+                                  </svg>
+                                ) : (
+                                  <CopyIcon className="w-3.5 h-3.5" />
+                                )}
+                              </motion.div>
+                            </AnimatePresence>
                           </Button>
                         </div>
 

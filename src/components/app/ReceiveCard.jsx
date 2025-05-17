@@ -1,7 +1,7 @@
 import { useAuth } from '@/providers/AuthProvider'
 import { Button, Tab, Tabs } from '@heroui/react'
-import { CopyIcon, ExternalLinkIcon, ZapIcon, RotateCwIcon, WalletCardsIcon, LinkIcon } from 'lucide-react'
-import React, { useState } from 'react'
+import { CopyIcon, ExternalLinkIcon, ZapIcon, RotateCwIcon, WalletCardsIcon, LinkIcon, SparklesIcon } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { Input } from '@heroui/react'
 import AnimateComponent from '../elements/AnimateComponent'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,11 +20,11 @@ export default function ReceiveCard() {
       label: 'Quick',
       icon: <ZapIcon className='w-4 h-4' />
     },
-    {
-      id: 'address',
-      label: 'Address',
-      icon: <WalletCardsIcon className='w-4 h-4' />
-    }
+    // {
+    //   id: 'address',
+    //   label: 'Address',
+    //   icon: <WalletCardsIcon className='w-4 h-4' />
+    // }
   ]
 
   const [selectedTab, setSelectedTab] = useState(TABS[0].id)
@@ -81,10 +81,41 @@ export default function ReceiveCard() {
 
 const LinkTab = () => {
   const { me } = useAuth()
+  const [isCopied, setIsCopied] = useState(false)
+  const timeoutRef = React.useRef(null)
 
-  const displayLink = `${me?.username}.pivy.me`
-  const actualLink = `${me?.username}.${window.location.origin.replace('http://', '').replace('https://', '')}`
+  const displayLink = `pivy.me/${me?.username}`
+  const actualLink = `${window.location.origin}/${me?.username}`
   
+  const handleOpenLink = () => {
+    window.open(actualLink, '_blank')
+  }
+
+  const handleCopy = async () => {
+    try {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+
+      await navigator.clipboard.writeText(actualLink)
+      setIsCopied(true)
+      timeoutRef.current = setTimeout(() => {
+        setIsCopied(false)
+        timeoutRef.current = null
+      }, 1500)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
   return (
     <div>
       <div className='bg-background-600/60 rounded-xl p-4 flex flex-row items-center justify-between'>
@@ -96,14 +127,59 @@ const LinkTab = () => {
             variant='light'
             radius='full'
             size='md'
+            onPress={handleCopy}
+            isDisabled={isCopied}
+            className='relative'
           >
-            <CopyIcon className='w-6 h-6 opacity-50' />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isCopied ? 'copied' : 'copy'}
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ 
+                  opacity: 1, 
+                  scale: 1,
+                  rotate: isCopied ? [0, 10, -5, 0] : 0
+                }}
+                exit={{ opacity: 0, scale: 0.7 }}
+                transition={{
+                  duration: 0.15,
+                  ease: [0.23, 1.2, 0.32, 1],
+                }}
+              >
+                {isCopied ? (
+                  <div className="text-green-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                      <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <CopyIcon className='w-6 h-6 opacity-50' />
+                )}
+              </motion.div>
+            </AnimatePresence>
+            <AnimatePresence>
+              {isCopied && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: -35 }}
+                  exit={{ opacity: 0, y: -40 }}
+                  transition={{ 
+                    duration: 0.2,
+                    ease: "circOut"
+                  }}
+                  className="absolute -top-2 left-1/2 transform -translate-x-1/2 text-sm font-medium text-green-500 pointer-events-none"
+                >
+                  Copied!
+                </motion.div>
+              )}
+            </AnimatePresence>
           </Button>
           <Button
             isIconOnly
             variant='light'
             radius='full'
             size='md'
+            onPress={handleOpenLink}
           >
             <ExternalLinkIcon className='w-6 h-6 opacity-50' />
           </Button>
@@ -116,13 +192,28 @@ const LinkTab = () => {
 const QuickPaymentTab = () => {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [showComingSoon, setShowComingSoon] = useState(false)
+  const timeoutRef = React.useRef(null)
 
   const handleCreateLink = () => {
-    setIsCreating(true)
-    // TODO: Implement link creation
-    setTimeout(() => setIsCreating(false), 1000)
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    
+    setShowComingSoon(true)
+    timeoutRef.current = setTimeout(() => {
+      setShowComingSoon(false)
+      timeoutRef.current = null
+    }, 1500)
   }
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className='flex flex-col gap-6'>
@@ -158,10 +249,19 @@ const QuickPaymentTab = () => {
         color='primary'
         startContent={<ZapIcon className="w-5 h-5" />}
         onPress={handleCreateLink}
-        isLoading={isCreating}
-        isDisabled={!amount || amount === '0'}
+        isDisabled={!amount || amount === '0' || showComingSoon}
       >
-        Create Quick Payment Link
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={showComingSoon ? 'coming-soon' : 'create'}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
+          >
+            {showComingSoon ? '✨ Coming Soon' : 'Create Quick Payment Link'}
+          </motion.span>
+        </AnimatePresence>
       </Button>
     </div>
   )

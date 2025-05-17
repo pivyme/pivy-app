@@ -170,6 +170,11 @@ export async function encryptEphemeralPrivKey(ephPriv32, metaViewPub58) {
 // Function to decrypt the ephemeral private key
 // Requires the meta view private key and ephemeral public key
 export async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub) {
+  console.log({
+    encodedPayload,
+    metaViewPriv,
+    ephPub
+  })
   // 1. Decode the payload
   const payload = bs58.decode(encodedPayload);
 
@@ -445,16 +450,7 @@ export const prepareUsdcEvmPayment = async ({
   return {
     stealthOwner,
     stealthAta,
-    encryptedPayload
+    encryptedPayload,
+    ephPub: eph.publicKey
   }
-}
-
-// For evm usdc stuff, CCTP
-async function depositForBurn(amount, destDomain, recipientBytes32) {
-  const TM_ABI = ['function depositForBurn(uint256,uint32,bytes32,address)'];
-  const messenger = new ethers.Contract(BASE_TOKEN_MESSENGER, TM_ABI, evmWallet);
-  const tx = await messenger.depositForBurn(amount, destDomain, recipientBytes32, USDC_BASE_ADDRESS);
-  await tx.wait();
-  console.log('✓ depositForBurn tx:', tx.hash);
-  return tx.hash;
 }

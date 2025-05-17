@@ -43,8 +43,8 @@ function TokenCard({ token, index }) {
   const walletInstance = useWallet()
   const backdropRef = useRef(null)
 
-  const [amount, setAmount] = useState(1)
-  const [address, setAddress] = useState('37Z16B1TYGY6gHTjFYtATJNPQwwYLgrr7sp3om2QSfUt')
+  const [amount, setAmount] = useState("")
+  const [address, setAddress] = useState("")
   const [error, setError] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
