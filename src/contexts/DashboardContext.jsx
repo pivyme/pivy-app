@@ -79,7 +79,7 @@ export function DashboardProvider({ children }) {
     handleGetActivities();
 
     // Refresh balances every 15 seconds
-    const balancesInterval = setInterval(handleGetBalances, 15000);
+    const balancesInterval = setInterval(handleGetBalances, 5000);
 
     // Refresh activities every 5 seconds
     const activitiesInterval = setInterval(handleGetActivities, 5000);

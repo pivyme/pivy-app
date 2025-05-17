@@ -29,7 +29,7 @@ class StealthSigner {
   }
 
   async signMessage(message) {
-    const msg = typeof message === 'string' ? Buffer.from(message) : new Uint8Array(message);
+    const msg = typeof message === 'string' ? Buffer.from(message) : new Uint8Array(message); 
 
     const prefix = sha512(this.scalarBytes).slice(32); // 32-byte prefix
 
