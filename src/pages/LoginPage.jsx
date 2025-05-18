@@ -108,7 +108,7 @@ export default function LoginPage() {
   return (
     <div className='w-full min-h-screen flex flex-col items-center justify-center px-2 md:px-0'>
       <AnimateComponent>
-        <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
+        <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8 mt-[10rem]'>
           <AnimateComponent delay={200}>
             <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
           </AnimateComponent>
@@ -168,7 +168,7 @@ export default function LoginPage() {
         </div>
       </AnimateComponent>
 
-      <div>
+      <div className='pb-[4rem]'>
         <KnowMoreCard />
       </div>
     </div>
