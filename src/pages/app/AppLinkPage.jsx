@@ -102,7 +102,7 @@ export default function AppLinkPage() {
   }
 
   return (
-    <div className="container max-w-2xl mx-auto z-50 py-14 pt-[10rem] pb-[15rem]">
+    <div className="container max-w-2xl mx-auto z-50 py-14 pt-[10rem] pb-[15rem] px-2 md:px-0">
       <div className="flex flex-col gap-12">
         {/* Header Section */}
         <AnimateComponent>
