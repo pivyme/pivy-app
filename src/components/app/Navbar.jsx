@@ -84,7 +84,7 @@ const WalletButton = () => {
           <div className="flex flex-row items-center gap-2">
             <GradientProfilePicture
               seed={publicKey?.toBase58() ?? ""}
-              className="size-8"
+              className="size-8 border-2 border-black"
             />
             <p className="font-medium tracking-tight">
               {shortenAddress(publicKey?.toBase58() ?? "")}

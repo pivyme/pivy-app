@@ -96,11 +96,6 @@ export default function LoginPage() {
     setIsConnecting(false);
   }
 
-
-  console.log({
-    isSignedIn,
-    connected,
-  })
   if (connected & isSignedIn) {
     return <Navigate to="/" replace />
   }
