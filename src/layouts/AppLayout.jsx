@@ -29,6 +29,9 @@ export default function AppLayout() {
   return (
     <AppWalletProvider>
       <DashboardProvider>
+        {/* Portal root for modals */}
+        <div id="portal-root" />
+        
         <PolkadotBackground />
         <Navbar />
         <BottomBar
@@ -42,8 +45,6 @@ export default function AppLayout() {
         <div className="light">
           <Outlet />
         </div>
-        {/* Portal root for modals */}
-        <div id="portal-root" />
       </DashboardProvider>
     </AppWalletProvider>
   );

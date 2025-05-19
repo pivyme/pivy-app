@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { XIcon } from 'lucide-react'
@@ -19,6 +19,17 @@ export default function Modal({
   maxWidth = '28rem',
   padding = '1.5rem'
 }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  if (!mounted) return null
+
+  const portalTarget = document.getElementById('portal-root') || document.body
+
   return createPortal(
     <AnimatePresence mode="wait">
       {isOpen && (
@@ -99,6 +110,6 @@ export default function Modal({
         </motion.div>
       )}
     </AnimatePresence>,
-    document.getElementById('portal-root')
+    portalTarget
   )
 }
