@@ -392,7 +392,7 @@ export default function ReceivePage({
   };
 
   return (
-    <div className='w-full min-h-screen flex flex-col items-center justify-center'>
+    <div className='w-full min-h-screen flex flex-col items-center justify-center px-2 md:px-0'>
       <SpecialThemeBackground
         specialTheme={stealthData?.linkData?.specialTheme || 'default'}
       />

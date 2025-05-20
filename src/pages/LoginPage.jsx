@@ -139,7 +139,7 @@ export default function LoginPage() {
             <AnimateComponent delay={400}>
               <BadgePill />
             </AnimateComponent>
-            
+
             {/* Connect Wallet */}
             <ConnectWallet />
 
@@ -171,6 +171,7 @@ export default function LoginPage() {
 
 const BadgePill = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+
 
   useEffect(() => {
     const interval = setInterval(() => {

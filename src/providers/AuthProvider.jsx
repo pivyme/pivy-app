@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -63,6 +64,7 @@ const AuthContext = createContext({
   walletChain: null,
   setWalletChain: () => { },
   isConnected: false,
+  connectedAddress: null,
 });
 
 export function AuthProvider({ children }) {
@@ -101,6 +103,20 @@ export function AuthProvider({ children }) {
 
   // Determine if connected based on selected chain
   const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : (walletChain === WALLET_CHAINS.SUI ? suiConnected : false);
+
+  // Get the connected address based on the selected chain
+  const connectedAddress = useMemo(() => {
+    if (!isConnected) return null;
+    
+    switch (walletChain) {
+      case WALLET_CHAINS.SOLANA:
+        return solanaPublicKey?.toBase58() ?? null;
+      case WALLET_CHAINS.SUI:
+        return suiAccount?.address ?? null;
+      default:
+        return null;
+    }
+  }, [walletChain, isConnected, solanaPublicKey, suiAccount]);
 
   const getWalletState = useCallback(() => {
     switch (walletChain) {
@@ -264,6 +280,7 @@ export function AuthProvider({ children }) {
         walletChain,
         setWalletChain,
         isConnected,
+        connectedAddress,
       }}
     >
       {children}

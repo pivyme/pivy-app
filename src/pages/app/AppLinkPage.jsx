@@ -2,19 +2,24 @@ import { useAuth } from '@/providers/AuthProvider'
 import axios from 'axios'
 import React, { useEffect, useState, useRef } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon } from 'lucide-react'
+import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon, PencilIcon, QrCodeIcon } from 'lucide-react'
 import { COLORS, CHAINS, SPECIAL_THEMES } from '@/config'
 import ColorCard from '@/components/elements/ColorCard'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { linkEvents } from '@/lib/events'
 import { AnimatePresence, motion } from 'framer-motion'
+import CreateLinkModal from '@/components/app/CreateLinkModal'
+import QRModal from '../../components/shared/QRModal'
 
 export default function AppLinkPage() {
   const { accessToken } = useAuth()
   const [links, setLinks] = useState([])
   const [loading, setLoading] = useState(true)
   const [copiedLinkId, setCopiedLinkId] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingLink, setEditingLink] = useState(null)
   const timeoutRef = useRef(null)
+  const [selectedQRLink, setSelectedQRLink] = useState(null)
 
   // Get tokens based on environment
   const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
@@ -71,7 +76,7 @@ export default function AppLinkPage() {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
-      
+
       await navigator.clipboard.writeText(getActualLink(link))
       setCopiedLinkId(link.id)
       timeoutRef.current = setTimeout(() => {
@@ -97,12 +102,23 @@ export default function AppLinkPage() {
     return 'Open Amount'
   }
 
-  const getTokenInfo = (mintAddress) => {
-    return networkTokens.find(t => t.address === mintAddress)
+  const handleEditLink = async (link) => {
+    setEditingLink(link)
+    // Wait a bit to let the form populate before showing the modal
+    await new Promise(resolve => setTimeout(resolve, 100))
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    // Clear editing link after modal closes
+    setTimeout(() => {
+      setEditingLink(null)
+    }, 300) // Wait for modal close animation to finish
   }
 
   return (
-    <div className="container max-w-2xl mx-auto z-50 py-14 pt-[10rem] pb-[15rem]">
+    <div className="container max-w-2xl mx-auto z-50 py-14 pt-[10rem] pb-[15rem] px-2 md:px-0">
       <div className="flex flex-col gap-12">
         {/* Header Section */}
         <AnimateComponent>
@@ -118,15 +134,12 @@ export default function AppLinkPage() {
 
         <AnimateComponent delay={200}>
           {loading ? (
-            // Loading State
-            <ColorCard color="blue" className="nice-card">
-              <div className="p-8 text-center">
-                <div className="flex flex-col items-center gap-4">
-                  <WalletIcon className="w-12 h-12 text-primary-500" />
-                  <p className="text-gray-600">Loading your payment links...</p>
-                </div>
+            <div className="p-8 text-center nice-card">
+              <div className="flex flex-col items-center gap-4">
+                <WalletIcon className="w-12 h-12 text-primary-500" />
+                <p className="text-gray-600 text-sm animate-pulse">Loading your payment links...</p>
               </div>
-            </ColorCard>
+            </div>
           ) : links.length === 0 ? (
             // Empty State
             <ColorCard color="blue" className="nice-card p-2">
@@ -154,7 +167,7 @@ export default function AppLinkPage() {
               {links.map((link, index) => (
                 <AnimateComponent key={link.tag} delay={175 + (index * 50)} className='h-full flex flex-col'>
                   <ColorCard
-                    color={link.backgroundColor}
+                    color={link.isPersonalLink ? 'primary' : link.backgroundColor}
                     className="nice-card p-2 h-full"
                   >
                     <div className="p-4">
@@ -167,12 +180,12 @@ export default function AppLinkPage() {
                           >
                             <span className="text-xl">{link.emoji}</span>
                             {link.specialTheme && link.specialTheme !== 'default' && (
-                              <div 
+                              <div
                                 className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full bg-white shadow-sm p-0 border border-gray-100 overflow-hidden"
                                 title={`${SPECIAL_THEMES.find(t => t.id === link.specialTheme)?.name || 'Special'} Theme`}
                               >
-                                <img 
-                                  src={SPECIAL_THEMES.find(t => t.id === link.specialTheme)?.icon} 
+                                <img
+                                  src={SPECIAL_THEMES.find(t => t.id === link.specialTheme)?.icon}
                                   alt="Theme"
                                   className="w-full h-full object-contain"
                                 />
@@ -184,68 +197,91 @@ export default function AppLinkPage() {
                             <p className="text-sm text-gray-500">{getPaymentTypeLabel(link)}</p>
                           </div>
                         </div>
-                        <Button
-                          isIconOnly
-                          variant="light"
-                          radius="full"
-                          className="text-gray-400 hover:text-black"
-                          onClick={() => window.open(getActualLink(link), '_blank')}
-                        >
-                          <ArrowUpRightIcon className="w-4 h-4" />
-                        </Button>
+                        {link.isPersonalLink === false &&
+                          <Button
+                            isIconOnly
+                            variant="light"
+                            radius="full"
+                            className="text-gray-400 hover:text-black"
+                            onClick={() => handleEditLink(link)}
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </Button>
+                        }
                       </div>
 
                       {/* Link Details */}
                       <div className="space-y-3">
-                        {/* Payment URL with Copy Button */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5">
-                          <LinkIcon className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600 font-medium flex-1">
+                        {/* Payment URL with Copy and QR Buttons */}
+                        <div
+                          className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5 group cursor-pointer hover:bg-gray-100/80 transition-colors"
+                          onClick={() => window.open(getActualLink(link), '_blank')}
+                        >
+                          <LinkIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0" />
+                          <span className="text-gray-600 font-medium flex-1 group-hover:text-gray-900 truncate">
                             {getDisplayLink(link)}
                           </span>
-                          <Button
-                            isIconOnly
-                            variant="flat"
-                            radius="full"
-                            size="sm"
-                            className="text-gray-500 hover:text-blackbg-white"
-                            onClick={() => handleCopyLink(link)}
-                            isDisabled={copiedLinkId === link.id}
-                          >
-                            <AnimatePresence mode="wait">
-                              <motion.div
-                                key={copiedLinkId === link.id ? 'check' : 'copy'}
-                                initial={{ opacity: 0, scale: 0.7 }}
-                                animate={{ 
-                                  opacity: 1, 
-                                  scale: 1,
-                                  rotate: copiedLinkId === link.id ? [0, 10, -5, 0] : 0
-                                }}
-                                exit={{ opacity: 0, scale: 0.7 }}
-                                transition={{
-                                  duration: 0.15,
-                                  ease: [0.23, 1.2, 0.32, 1],
-                                }}
-                              >
-                                {copiedLinkId === link.id ? (
-                                  <svg 
-                                    xmlns="http://www.w3.org/2000/svg" 
-                                    viewBox="0 0 24 24" 
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    strokeWidth="3" 
-                                    strokeLinecap="round" 
-                                    strokeLinejoin="round" 
-                                    className="w-3.5 h-3.5 text-green-500"
-                                  >
-                                    <path d="M20 6L9 17l-5-5"/>
-                                  </svg>
-                                ) : (
-                                  <CopyIcon className="w-3.5 h-3.5" />
-                                )}
-                              </motion.div>
-                            </AnimatePresence>
-                          </Button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              isIconOnly
+                              variant="flat"
+                              radius="full"
+                              size="sm"
+                              className="text-gray-500 hover:text-black"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedQRLink(link);
+                              }}
+                            >
+                              <QrCodeIcon className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              isIconOnly
+                              variant="flat"
+                              radius="full"
+                              size="sm"
+                              className="text-gray-500 hover:text-black"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyLink(link);
+                              }}
+                              isDisabled={copiedLinkId === link.id}
+                            >
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={copiedLinkId === link.id ? 'check' : 'copy'}
+                                  initial={{ opacity: 0, scale: 0.7 }}
+                                  animate={{
+                                    opacity: 1,
+                                    scale: 1,
+                                    rotate: copiedLinkId === link.id ? [0, 10, -5, 0] : 0
+                                  }}
+                                  exit={{ opacity: 0, scale: 0.7 }}
+                                  transition={{
+                                    duration: 0.15,
+                                    ease: [0.23, 1.2, 0.32, 1],
+                                  }}
+                                >
+                                  {copiedLinkId === link.id ? (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="w-3.5 h-3.5 text-green-500"
+                                    >
+                                      <path d="M20 6L9 17l-5-5" />
+                                    </svg>
+                                  ) : (
+                                    <CopyIcon className="w-3.5 h-3.5" />
+                                  )}
+                                </motion.div>
+                              </AnimatePresence>
+                            </Button>
+                          </div>
                         </div>
 
                         {/* File Info (if download type) */}
@@ -292,6 +328,22 @@ export default function AppLinkPage() {
           )}
         </AnimateComponent>
       </div>
+
+      <CreateLinkModal
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        editLink={editingLink}
+      />
+
+      {/* QR Code Modal */}
+      <QRModal
+        isOpen={!!selectedQRLink}
+        onClose={() => setSelectedQRLink(null)}
+        url={selectedQRLink ? getActualLink(selectedQRLink) : ''}
+        label={selectedQRLink ? (selectedQRLink.label || selectedQRLink.tag) : ''}
+        color={selectedQRLink?.isPersonalLink ? 'primary' : selectedQRLink?.backgroundColor}
+        emoji={selectedQRLink?.emoji}
+      />
     </div>
   )
 }
