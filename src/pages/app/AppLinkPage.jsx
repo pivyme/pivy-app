@@ -213,15 +213,15 @@ export default function AppLinkPage() {
                       {/* Link Details */}
                       <div className="space-y-3">
                         {/* Payment URL with Copy and QR Buttons */}
-                        <div 
+                        <div
                           className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5 group cursor-pointer hover:bg-gray-100/80 transition-colors"
                           onClick={() => window.open(getActualLink(link), '_blank')}
                         >
-                          <LinkIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
-                          <span className="text-gray-600 font-medium flex-1 group-hover:text-gray-900">
+                          <LinkIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0" />
+                          <span className="text-gray-600 font-medium flex-1 group-hover:text-gray-900 truncate">
                             {getDisplayLink(link)}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 shrink-0">
                             <Button
                               isIconOnly
                               variant="flat"
