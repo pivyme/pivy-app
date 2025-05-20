@@ -6,7 +6,8 @@ export default function LandingLayout() {
     <>
       <div id="portal-root" />
       <div className="light">
-        <PolkadotBackground />
+        <PolkadotBackground className="opacity-50" />
+
         <Outlet />
       </div>
     </>

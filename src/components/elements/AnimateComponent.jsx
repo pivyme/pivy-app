@@ -136,6 +136,7 @@ const getAnimationVariants = (type, delay = 0) => {
  * @param {boolean} [props.onScroll=false] - Whether to trigger animation on scroll
  * @param {number} [props.threshold=0.4] - Intersection observer threshold (0 to 1)
  * @param {boolean} [props.resetOnLeave=false] - Whether to reset animation when element leaves viewport
+ * @param {boolean} [props.show] - If provided, controls when the animation starts. Animation won't start until show is true
  * @returns {JSX.Element}
  */
 const AnimateComponent = ({
@@ -146,6 +147,7 @@ const AnimateComponent = ({
   onScroll = false,
   threshold = 0.4,
   resetOnLeave = false,
+  show,
 }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, {
@@ -156,12 +158,13 @@ const AnimateComponent = ({
   const controls = useAnimation();
 
   useEffect(() => {
-    if (!onScroll || isInView) {
+    const shouldAnimate = show === undefined ? true : show;
+    if ((!onScroll || isInView) && shouldAnimate) {
       controls.start("animate");
-    } else if (resetOnLeave && !isInView) {
+    } else if ((resetOnLeave && !isInView) || !shouldAnimate) {
       controls.start("initial");
     }
-  }, [isInView, controls, onScroll, resetOnLeave]);
+  }, [isInView, controls, onScroll, resetOnLeave, show]);
 
   const variants = getAnimationVariants(entry, delay / 1000);
 
@@ -169,7 +172,7 @@ const AnimateComponent = ({
     <motion.div
       ref={ref}
       initial="initial"
-      animate={onScroll ? controls : "animate"}
+      animate={onScroll ? controls : (show === undefined ? "animate" : controls)}
       exit="exit"
       variants={variants}
       className={className}

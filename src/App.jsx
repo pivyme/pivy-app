@@ -40,16 +40,16 @@ const getTagFromPath = () => {
 };
 
 const router = createBrowserRouter([
-  // {
-  //   path: "/",
-  //   element: <LandingLayout />,
-  //   children: [
-  //     {
-  //       path: "",
-  //       element: <IndexPage />,
-  //     }
-  //   ]
-  // },
+  {
+    path: "/landing",
+    element: <LandingLayout />,
+    children: [
+      {
+        path: "",
+        element: <IndexPage />,
+      }
+    ]
+  },
   {
     path: "/",
     element: <AppLayout />,

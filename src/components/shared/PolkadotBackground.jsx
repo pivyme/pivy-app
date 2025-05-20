@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { cnm } from '@/utils/style'
 
-export default function PolkadotBackground() {
+export default function PolkadotBackground({ className }) {
   const COLORS = [
     '#a04eff',
     '#64c6ff',
@@ -37,7 +38,7 @@ export default function PolkadotBackground() {
   }, [])
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div className={cnm("fixed inset-0 -z-10 overflow-hidden pointer-events-none", className)}>
       {dots.map((dot) => (
         <motion.div
           key={dot.id}

@@ -2,13 +2,14 @@ import { useAuth } from '@/providers/AuthProvider'
 import axios from 'axios'
 import React, { useEffect, useState, useRef } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon, PencilIcon } from 'lucide-react'
+import { ArrowUpRightIcon, CopyIcon, LinkIcon, WalletIcon, FileIcon, PencilIcon, QrCodeIcon } from 'lucide-react'
 import { COLORS, CHAINS, SPECIAL_THEMES } from '@/config'
 import ColorCard from '@/components/elements/ColorCard'
 import AnimateComponent from '@/components/elements/AnimateComponent'
 import { linkEvents } from '@/lib/events'
 import { AnimatePresence, motion } from 'framer-motion'
 import CreateLinkModal from '@/components/app/CreateLinkModal'
+import QRModal from '../../components/shared/QRModal'
 
 export default function AppLinkPage() {
   const { accessToken } = useAuth()
@@ -18,6 +19,7 @@ export default function AppLinkPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLink, setEditingLink] = useState(null)
   const timeoutRef = useRef(null)
+  const [selectedQRLink, setSelectedQRLink] = useState(null)
 
   // Get tokens based on environment
   const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
@@ -210,10 +212,13 @@ export default function AppLinkPage() {
 
                       {/* Link Details */}
                       <div className="space-y-3">
-                        {/* Payment URL with Copy and Open Buttons */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5">
-                          <LinkIcon className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600 font-medium flex-1">
+                        {/* Payment URL with Copy and QR Buttons */}
+                        <div 
+                          className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-xl text-sm border border-black/5 group cursor-pointer hover:bg-gray-100/80 transition-colors"
+                          onClick={() => window.open(getActualLink(link), '_blank')}
+                        >
+                          <LinkIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                          <span className="text-gray-600 font-medium flex-1 group-hover:text-gray-900">
                             {getDisplayLink(link)}
                           </span>
                           <div className="flex items-center gap-1">
@@ -223,9 +228,12 @@ export default function AppLinkPage() {
                               radius="full"
                               size="sm"
                               className="text-gray-500 hover:text-black"
-                              onClick={() => window.open(getActualLink(link), '_blank')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedQRLink(link);
+                              }}
                             >
-                              <ArrowUpRightIcon className="w-3.5 h-3.5" />
+                              <QrCodeIcon className="w-3.5 h-3.5" />
                             </Button>
                             <Button
                               isIconOnly
@@ -233,7 +241,10 @@ export default function AppLinkPage() {
                               radius="full"
                               size="sm"
                               className="text-gray-500 hover:text-black"
-                              onClick={() => handleCopyLink(link)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyLink(link);
+                              }}
                               isDisabled={copiedLinkId === link.id}
                             >
                               <AnimatePresence mode="wait">
@@ -322,6 +333,16 @@ export default function AppLinkPage() {
         open={isModalOpen}
         onClose={handleCloseModal}
         editLink={editingLink}
+      />
+
+      {/* QR Code Modal */}
+      <QRModal
+        isOpen={!!selectedQRLink}
+        onClose={() => setSelectedQRLink(null)}
+        url={selectedQRLink ? getActualLink(selectedQRLink) : ''}
+        label={selectedQRLink ? (selectedQRLink.label || selectedQRLink.tag) : ''}
+        color={selectedQRLink?.isPersonalLink ? 'primary' : selectedQRLink?.backgroundColor}
+        emoji={selectedQRLink?.emoji}
       />
     </div>
   )
