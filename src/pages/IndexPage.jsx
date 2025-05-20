@@ -435,8 +435,7 @@ function IntroSection() {
             </div>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               PIVY combines the privacy of stealth addresses with the simplicity of payment links. No more choosing
-              between <span className="font-medium">privacy</span> and <span className="font-medium">convenience</span>{" "}
-              — now you can have both in one seamless package.
+              between <span className="font-medium">privacy</span> and <span className="font-medium">convenience</span>, now you can have both in one seamless package.
             </p>
             <span className="text-5xl leading-none text-primary-300 font-serif">&ldquo;</span>
           </motion.div>
@@ -784,7 +783,7 @@ function HowItWorksSection() {
     {
       title: "Connect Your Wallet",
       description:
-        "Connect Phantom/Solflare or import a secret phrase. PIVY generates a Meta Address (public spending key + encrypted viewing key).",
+        "Connect Phantom/Solflare. PIVY generates a Meta Address (public spending key + encrypted viewing key).",
       points: ["Your keys stay in your wallet", "No custody, full control"],
       icon: Key,
       color: {
