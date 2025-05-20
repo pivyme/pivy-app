@@ -4,10 +4,14 @@ import { useAuth } from '@/providers/AuthProvider'
 import BounceButton from '@/components/elements/BounceButton'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
-import { ShieldIcon, SmileIcon, ZapIcon } from 'lucide-react'
+import { ArrowRightIcon, ShieldIcon, SmileIcon, ZapIcon } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { Navigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ConnectButton } from '@suiet/wallet-kit'
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit'
+import ConnectWallet from '@/components/login/ConnectWallet'
+import { WALLET_CHAINS } from '@/providers/AuthProvider'
 
 const BENEFITS = [
   {
@@ -80,14 +84,18 @@ const SHOWCASE_LINKS = [
 
 export default function LoginPage() {
   const { setVisible, visible } = useWalletModal();
-  const { signIn, isSignedIn } = useAuth();
-  const { connected } = useWallet();
+  const { signIn, isSignedIn, walletChain } = useAuth();
+  const { connected: solanaConnected } = useWallet();
+  const { connected: suiConnected } = useSuiWallet();
 
-
+  const [selectedChain, setSelectedChain] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
+
   async function handleConnect() {
     setIsConnecting(true);
-    if (connected) {
+    if (isConnected) {
       await signIn();
     } else {
       setVisible(true);
@@ -95,84 +103,75 @@ export default function LoginPage() {
     setIsConnecting(false);
   }
 
-
-  console.log({
-    isSignedIn,
-    connected,
-  })
-  if (connected & isSignedIn) {
+  if (isConnected && isSignedIn) {
     return <Navigate to="/" replace />
   }
 
   return (
     <div className='w-full min-h-screen flex items-center justify-center'>
-      <AnimateComponent>
-        <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
-          <AnimateComponent delay={200}>
-            <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
-          </AnimateComponent>
+      <div className='flex flex-col items-center'>
+        <AnimateComponent>
+          <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
+            {/* Logo */}
+            <AnimateComponent delay={100}>
+              <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
+            </AnimateComponent>
 
-          <AnimateComponent delay={400}>
-            <h1 className='text-4xl font-bold tracking-tight mt-4'>
-              Get Paid, Stay Private
-            </h1>
-          </AnimateComponent>
-          <AnimateComponent delay={500}>
-            <p className='mt-4'>
-              The self-custodial payment toolkit for Solana that keeps your real wallet <span className='font-semibold text-primary-600'>private</span> using <span className='font-semibold text-primary-600'>Stealth Addresses.</span>
-            </p>
-            <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
-              <span className='text-xs font-medium text-primary-700'>✨ The First Ever Stealth Address Implementation on Solana</span>
-              <div className='w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse'/>
-            </div>
-          </AnimateComponent>
+            {/* Heading */}
+            <AnimateComponent delay={200}>
+              <h1 className='text-4xl font-bold tracking-tight mt-4'>
+                Get Paid, Stay Private
+              </h1>
+            </AnimateComponent>
 
-          {/* Link Showcase */}
-          <AnimateComponent delay={600}>
-            <BadgePill />
-          </AnimateComponent>
+            {/* Description */}
+            <AnimateComponent delay={300}>
+              <p className='mt-4'>
+                The self-custodial payment toolkit that keeps your real wallet <span className='font-semibold text-primary-600'>private</span> using <span className='font-semibold text-primary-600'>Stealth Addresses.</span>
+              </p>
+              <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
+                <span className='text-xs font-medium text-primary-700'>✨ Multi-Chain Stealth Addresses</span>
+                <div className='w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse' />
+              </div>
+            </AnimateComponent>
 
-          {/* Benefits */}
-          <div className='flex flex-row items-center gap-5 mt-8'>
-            {BENEFITS.map((benefit, index) => (
-              <AnimateComponent
-                key={index}
-                delay={(index * 100) + 600}
-              >
-                <div className='flex flex-col items-center'>
-                  <div className={`flex flex-col items-center rounded-full p-3`}
-                    style={{ backgroundColor: benefit.background }}
-                  >
-                    {benefit.icon}
-                  </div>
-                  <p className='mt-2 font-semibold tracking-tight'>{benefit.text}</p>
-                </div>
-              </AnimateComponent>
-            ))}
+            {/* Link Showcase */}
+            <AnimateComponent delay={400}>
+              <BadgePill />
+            </AnimateComponent>
+            
+            {/* Connect Wallet */}
+            <ConnectWallet />
+
           </div>
+        </AnimateComponent>
 
-          {/* Connect Wallet */}
-          <AnimateComponent delay={800}>
-            <BounceButton
-              className='mt-8 tracking-tight font-semibold px-8 py-6 text-xl'
-              radius='full'
-              size='lg'
-              color='primary'
-              onPress={handleConnect}
-              isLoading={isConnecting || visible}
+        {/* Benefits */}
+        <div className='flex flex-row items-center gap-5 mt-8'>
+          {BENEFITS.map((benefit, index) => (
+            <AnimateComponent
+              key={index}
+              delay={1000 + (index * 100)}
             >
-              {connected ? "Sign message to continue" : "Connect Wallet"}
-            </BounceButton>
-          </AnimateComponent>
+              <div className='flex flex-col items-center'>
+                <div className={`flex flex-col items-center rounded-full p-3`}
+                  style={{ backgroundColor: benefit.background }}
+                >
+                  {benefit.icon}
+                </div>
+                <p className='mt-2 font-semibold tracking-tight'>{benefit.text}</p>
+              </div>
+            </AnimateComponent>
+          ))}
         </div>
-      </AnimateComponent>
+      </div>
     </div>
   )
 }
 
 const BadgePill = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % SHOWCASE_LINKS.length);
@@ -213,7 +212,7 @@ const BadgePill = () => {
             <motion.span className="text-gray-500 font-medium">
               pivy.me/
             </motion.span>
-            <motion.span 
+            <motion.span
               className="text-primary-600 font-semibold"
               layoutId="username"
               layout
@@ -223,7 +222,7 @@ const BadgePill = () => {
             {currentLink.tag && (
               <>
                 <motion.span className="text-gray-500 font-medium">/</motion.span>
-                <motion.span 
+                <motion.span
                   className="text-gray-700 font-semibold"
                   layoutId="tag"
                   layout
@@ -251,9 +250,8 @@ const BadgePill = () => {
         {SHOWCASE_LINKS.map((_, index) => (
           <motion.div
             key={index}
-            className={`w-1.5 h-1.5 rounded-full ${
-              index === currentIndex ? "bg-primary-500" : "bg-gray-200"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full ${index === currentIndex ? "bg-primary-500" : "bg-gray-200"
+              }`}
             initial={false}
             animate={{
               scale: index === currentIndex ? 1.3 : 1,
@@ -266,3 +264,4 @@ const BadgePill = () => {
     </div>
   );
 };
+

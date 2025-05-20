@@ -16,11 +16,9 @@ import { RESTRICTED_USERNAME } from '@/config';
 import ActivityCard from '@/components/app/ActivityCard';
 
 export default function AppHomePage() {
-  const { connected, connecting } = useWallet();
+  const { isConnected } = useAuth();
   const { accessToken, me } = useAuth();
   const { isFirstMount, disableMount } = useFirstMount();
-
-  console.log('me', me)
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -29,7 +27,7 @@ export default function AppHomePage() {
     return () => clearTimeout(timeout);
   }, [disableMount]);
 
-  if (isFirstMount || connecting) {
+  if (isFirstMount) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center pt-[10rem]">
         <Spinner color='black' />
@@ -37,8 +35,7 @@ export default function AppHomePage() {
     );
   }
 
-
-  if (!connected) {
+  if (!isConnected) {
     console.log("not connected or signed in");
     return <Navigate to={"/login"} replace />;
   }

@@ -11,6 +11,13 @@ import axios from "axios";
 import { Header, Payload, SIWS } from "@web3auth/sign-in-with-solana";
 import { useLocalStorage } from "@uidotdev/usehooks";
 import { Buffer } from "buffer";
+import { useWallet as useSuiWallet } from "@suiet/wallet-kit";
+import { verifyPersonalMessageSignature } from '@mysten/sui/verify';
+
+const WALLET_CHAINS = {
+  SOLANA: 'SOLANA',
+  SUI: 'SUI'
+}
 
 function createSolanaMessage(address, statement) {
   const header = new Header();
@@ -36,14 +43,26 @@ function createSolanaMessage(address, statement) {
   };
 }
 
+function createSuiMessage(address, statement) {
+  // Simple message for now, can be enhanced with proper Sui signing standard
+  const message = `${statement}\n\nWallet address: ${address}`;
+  return {
+    message: message, // Return the raw string
+    encoded: new TextEncoder().encode(message) // Return the encoded version for signing
+  };
+}
+
 const AuthContext = createContext({
   accessToken: null,
   isSignedIn: false,
-  signIn: () => {},
-  signOut: () => {},
+  signIn: () => { },
+  signOut: () => { },
   me: null,
-  fetchMe: () => {},
+  fetchMe: () => { },
   isLoading: true,
+  walletChain: null,
+  setWalletChain: () => { },
+  isConnected: false,
 });
 
 export function AuthProvider({ children }) {
@@ -55,11 +74,144 @@ export function AuthProvider({ children }) {
     "pivy-last-connected-address",
     null
   );
+  const [walletChain, setWalletChain] = useLocalStorage(
+    "pivy-wallet-chain",
+    null
+  );
   const [me, setMe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { connected, publicKey, signMessage, signIn, disconnect } = useWallet();
+
+  // Wallet connections
+  const {
+    connected: solanaConnected,
+    publicKey: solanaPublicKey,
+    signMessage: signSolanaMessage,
+    disconnect: disconnectSolana
+  } = useWallet();
+
+  const {
+    connected: suiConnected,
+    account: suiAccount,
+    signPersonalMessage: signSuiPersonalMessage,
+    disconnect: disconnectSui
+  } = useSuiWallet();
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Determine if connected based on selected chain
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : (walletChain === WALLET_CHAINS.SUI ? suiConnected : false);
+
+  const getWalletState = useCallback(() => {
+    switch (walletChain) {
+      case WALLET_CHAINS.SOLANA:
+        return {
+          isConnected: solanaConnected,
+          address: solanaPublicKey?.toBase58()
+        };
+      case WALLET_CHAINS.SUI:
+        return {
+          isConnected: suiConnected,
+          address: suiAccount?.address
+        };
+      default:
+        return {
+          isConnected: false,
+          address: null
+        };
+    }
+  }, [walletChain, solanaConnected, solanaPublicKey, suiConnected, suiAccount]);
+
+  const handleSignInSolana = async () => {
+    const messageData = createSolanaMessage(solanaPublicKey.toBase58(), "Welcome to Pivy!");
+    const signature = await signSolanaMessage(messageData.message);
+
+    return {
+      chain: WALLET_CHAINS.SOLANA,
+      publicKey: solanaPublicKey.toBase58(),
+      payload: messageData.payload,
+      header: messageData.header,
+      signature: {
+        t: "sip99",
+        s: Buffer.from(signature).toString("base64"),
+      }
+    };
+  };
+
+  const handleSignInSui = async () => {
+    const messageData = createSuiMessage(suiAccount.address, "Welcome to Pivy!");
+    const signature = await signSuiPersonalMessage({
+      message: messageData.encoded // Use the encoded version for signing
+    });
+
+    return {
+      chain: WALLET_CHAINS.SUI,
+      publicKey: suiAccount.address,
+      message: messageData.message, // Send the original message string
+      signature: signature
+    };
+  };
+
+  const handleSignIn = useCallback(async () => {
+    const { isConnected, address } = getWalletState();
+
+    if (!isConnected || !address) {
+      navigate("/login", { state: { from: location.pathname } });
+      return;
+    }
+
+    try {
+      let signInData;
+
+      switch (walletChain) {
+        case WALLET_CHAINS.SOLANA:
+          signInData = await handleSignInSolana();
+          break;
+        case WALLET_CHAINS.SUI:
+          signInData = await handleSignInSui();
+          break;
+        default:
+          throw new Error("Invalid wallet chain");
+      }
+
+      signInData.walletChain = walletChain;
+
+      console.log('signInData', signInData);
+      console.log('walletChain', walletChain);
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/auth/login`,
+        signInData
+      );
+
+      setAccessToken(response.data);
+      const from = location.state?.from || "/";
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error("Sign in error:", error);
+      navigate("/login");
+    }
+  }, [walletChain, getWalletState, signSolanaMessage, signSuiPersonalMessage, navigate, location]);
+
+  const handleDisconnect = useCallback(() => {
+    switch (walletChain) {
+      case WALLET_CHAINS.SOLANA:
+        disconnectSolana();
+        break;
+      case WALLET_CHAINS.SUI:
+        disconnectSui();
+        break;
+    }
+  }, [walletChain, disconnectSolana, disconnectSui]);
+
+  const signOut = useCallback(() => {
+    setAccessToken(null);
+    setLastConnectedAddress(null);
+    setWalletChain(null);
+    handleDisconnect();
+    setMe(null);
+    navigate("/login");
+  }, [setAccessToken, setLastConnectedAddress, handleDisconnect, navigate]);
 
   const fetchMe = useCallback(async () => {
     if (!accessToken) {
@@ -91,58 +243,13 @@ export function AuthProvider({ children }) {
   }, [accessToken, fetchMe]);
 
   useEffect(() => {
-    if (connected && publicKey) {
-      const currentAddress = publicKey.toBase58();
-      if (lastConnectedAddress && lastConnectedAddress !== currentAddress) {
+    if (getWalletState().isConnected && getWalletState().address) {
+      if (lastConnectedAddress && lastConnectedAddress !== getWalletState().address) {
         signOut();
       }
-      setLastConnectedAddress(currentAddress);
+      setLastConnectedAddress(getWalletState().address);
     }
-  }, [connected, publicKey, lastConnectedAddress]);
-
-  const handleSignIn = useCallback(async () => {
-    if (!connected || !publicKey || !signMessage) {
-      navigate("/login", { state: { from: location.pathname } });
-      return;
-    }
-
-    try {
-      const message = createSolanaMessage(
-        publicKey.toBase58(),
-        "Welcome to Pivy!"
-      );
-      const signature = await signMessage(message.message);
-
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/auth/login`,
-        {
-          publicKey: publicKey.toBase58(),
-          payload: message.payload,
-          header: message.header,
-          signature: {
-            t: "sip99",
-            s: Buffer.from(signature).toString("base64"),
-          },
-        }
-      );
-
-      setAccessToken(response.data);
-      // Navigate back to the original route or default to home
-      const from = location.state?.from || "/";
-      navigate(from, { replace: true });
-    } catch (error) {
-      console.error("Sign in error:", error);
-      navigate("/login");
-    }
-  }, [connected, publicKey, signMessage, navigate, location]);
-
-  const signOut = useCallback(() => {
-    setAccessToken(null);
-    setLastConnectedAddress(null);
-    disconnect();
-    setMe(null);
-    navigate("/login");
-  }, [setAccessToken, setLastConnectedAddress, disconnect, navigate]);
+  }, [getWalletState, lastConnectedAddress]);
 
   return (
     <AuthContext.Provider
@@ -154,6 +261,9 @@ export function AuthProvider({ children }) {
         me,
         fetchMe,
         isLoading,
+        walletChain,
+        setWalletChain,
+        isConnected,
       }}
     >
       {children}
@@ -170,29 +280,32 @@ export function useAuth() {
 }
 
 export function ProtectedRoute({ children }) {
-  const { connected } = useWallet();
-  const { isSignedIn, isLoading } = useAuth();
+  const { connected: solanaConnected } = useWallet();
+  const { connected: suiConnected } = useSuiWallet();
+  const { isSignedIn, isLoading, walletChain } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
+
   useEffect(() => {
-    if (!isLoading && (!connected || !isSignedIn)) {
-      navigate("/login", { 
+    if (!isLoading && (!isConnected || !isSignedIn)) {
+      navigate("/login", {
         state: { from: location.pathname },
-        replace: true 
+        replace: true
       });
     }
-  }, [connected, isSignedIn, navigate, location, isLoading]);
+  }, [isConnected, isSignedIn, navigate, location, isLoading]);
 
-  // Show nothing while checking authentication
   if (isLoading) {
     return null;
   }
 
-  // Show children only if authenticated
-  if (connected && isSignedIn) {
+  if (isConnected && isSignedIn) {
     return <>{children}</>;
   }
 
   return null;
 }
+
+export { WALLET_CHAINS };

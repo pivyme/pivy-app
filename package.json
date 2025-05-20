@@ -15,6 +15,7 @@
     "@fontsource-variable/inter": "^5.1.1",
     "@gsap/react": "^2.1.2",
     "@heroui/react": "^2.6.14",
+    "@mysten/sui": "^1.29.1",
     "@noble/curves": "^1.9.1",
     "@noble/ed25519": "^1.6.0",
     "@noble/hashes": "^1.4.0",
@@ -24,6 +25,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-wallets": "^0.19.36",
     "@solana/web3.js": "^1.98.2",
+    "@suiet/wallet-kit": "^0.4.1",
     "@tanstack/react-query": "^5.76.1",
     "@uidotdev/usehooks": "^2.4.1",
     "@web3auth/sign-in-with-solana": "^5.0.0",
@@ -31,6 +33,7 @@
     "clsx": "^2.1.1",
     "crypto": "^1.0.1",
     "date-fns": "^4.1.0",
+    "ethers": "^6.14.0",
     "framer-motion": "^12.11.3",
     "gsap": "npm:@gsap/shockingly@^3.12.7",
     "lenis": "^1.1.20",
@@ -42,8 +45,7 @@
     "react-router-dom": "^7.6.0",
     "tailwind-merge": "^3.0.1",
     "viem": "^2.29.4",
-    "wagmi": "^2.15.3",
-    "ethers": "^6.14.0"
+    "wagmi": "^2.15.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
