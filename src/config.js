@@ -14,6 +14,8 @@ export const CONFIG = {
   TELEGRAM_LINK: "",
 };
 
+export const isTestnet = import.meta.env.VITE_IS_TESTNET === 'true';
+
 export const COLORS = [
   { id: 'blue', value: '#60A5FA', light: '#DBEAFE' },
   { id: 'purple', value: '#A78BFA', light: '#EDE9FE' },
@@ -93,7 +95,7 @@ export const CHAINS = {
       }
     ]
   },
-  SUI_MAINNET : {
+  SUI_MAINNET: {
     id: "SUI_MAINNET",
     rpcUrl: import.meta.env.VITE_SUI_RPC_MAINNET,
     stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_MAINNET,
@@ -138,6 +140,19 @@ export const CHAINS = {
         isNative: true,
       }
     ]
+  }
+}
+
+export const SUI_CHAINS = {
+  MAINNET: {
+    id: 'sui:mainnet',
+    name: 'Sui Mainnet',
+    rpcUrl: "https://fullnode.testnet.sui.io",
+  },
+  TESTNET: {
+    id: "sui:testnet",
+    name: "Sui Testnet",
+    rpcUrl: "https://rpc.mainnet.sui.io"
   }
 }
 

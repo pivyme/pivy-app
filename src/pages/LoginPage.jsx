@@ -83,25 +83,11 @@ const SHOWCASE_LINKS = [
 ];
 
 export default function LoginPage() {
-  const { setVisible, visible } = useWalletModal();
   const { signIn, isSignedIn, walletChain } = useAuth();
   const { connected: solanaConnected } = useWallet();
   const { connected: suiConnected } = useSuiWallet();
 
-  const [selectedChain, setSelectedChain] = useState(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-
   const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
-
-  async function handleConnect() {
-    setIsConnecting(true);
-    if (isConnected) {
-      await signIn();
-    } else {
-      setVisible(true);
-    }
-    setIsConnecting(false);
-  }
 
   if (isConnected && isSignedIn) {
     return <Navigate to="/" replace />
