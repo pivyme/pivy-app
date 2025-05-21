@@ -92,6 +92,52 @@ export const CHAINS = {
         image: "/tokens/sol.png",
       }
     ]
+  },
+  SUI_MAINNET : {
+    id: "SUI_MAINNET",
+    rpcUrl: import.meta.env.VITE_SUI_RPC_MAINNET,
+    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_MAINNET,
+    tokens: [
+      {
+        name: "USDC",
+        symbol: "USDC",
+        address: "",
+        decimals: 6,
+        image: "/tokens/usdc.png",
+        isNative: false,
+      },
+      {
+        name: "SUI",
+        symbol: "SUI",
+        address: "0x2::sui::SUI",
+        decimals: 9,
+        image: "/tokens/sui.png",
+        isNative: true,
+      }
+    ]
+  },
+  SUI_DEVNET: {
+    id: "SUI_DEVNET",
+    rpcUrl: import.meta.env.VITE_SUI_RPC_DEVNET,
+    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_DEVNET,
+    tokens: [
+      {
+        name: "USDC",
+        symbol: "USDC",
+        address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+        decimals: 6,
+        image: "/tokens/usdc.png",
+        isNative: false,
+      },
+      {
+        name: "SUI",
+        symbol: "SUI",
+        address: "0x2::sui::SUI",
+        decimals: 9,
+        image: "/tokens/sui.png",
+        isNative: true,
+      }
+    ]
   }
 }
 
