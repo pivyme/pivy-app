@@ -14,6 +14,7 @@ import { useLocalStorage } from "@uidotdev/usehooks";
 import { Buffer } from "buffer";
 import { useWallet as useSuiWallet } from "@suiet/wallet-kit";
 import { verifyPersonalMessageSignature } from '@mysten/sui/verify';
+import { isTestnet } from '@/config';
 
 const WALLET_CHAINS = {
   SOLANA: 'SOLANA',
@@ -65,6 +66,7 @@ const AuthContext = createContext({
   setWalletChain: () => { },
   isConnected: false,
   connectedAddress: null,
+  walletChainId: null,
 });
 
 export function AuthProvider({ children }) {
@@ -82,6 +84,20 @@ export function AuthProvider({ children }) {
   );
   const [me, setMe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Compute walletChainId based on walletChain and network type
+  const walletChainId = useMemo(() => {
+    if (!walletChain) return null;
+
+    switch (walletChain) {
+      case WALLET_CHAINS.SOLANA:
+        return isTestnet ? 'DEVNET' : 'MAINNET';
+      case WALLET_CHAINS.SUI:
+        return isTestnet ? 'SUI_TESTNET' : 'SUI_MAINNET';
+      default:
+        return null;
+    }
+  }, [walletChain]);
 
   // Wallet connections
   const {
@@ -281,6 +297,7 @@ export function AuthProvider({ children }) {
         setWalletChain,
         isConnected,
         connectedAddress,
+        walletChainId,
       }}
     >
       {children}

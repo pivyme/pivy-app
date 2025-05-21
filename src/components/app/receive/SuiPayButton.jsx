@@ -42,6 +42,8 @@ export default function SuiPayButton({
       const ephPriv = getPrivBytes(ephemeralKeypair);
       const ephPub58 = bs58.encode(getPubBytes(ephemeralKeypair))
 
+      console.log('ephPub58', ephPub58) // e.g. KXyuATsgp4nAQ39RkE7AwAatxj9XKfu8LS8wzRh3erT
+
       const stealthAddress = await deriveStealthPub(
         stealthData.metaSpendPub,
         stealthData.metaViewPub,
@@ -58,6 +60,7 @@ export default function SuiPayButton({
 
       // Build stealth payment transaction
       const labelBytes = pad32(toBytes('testing'));
+      const ephPubBytes = toBytes(ephPub58);
       const payloadBytes = toBytes(encryptedMemo);
 
       const payTx = new Transaction();
@@ -91,7 +94,7 @@ export default function SuiPayButton({
           coinForStealth,
           payTx.pure.address(stealthAddress.stealthSuiAddress),
           payTx.pure.vector('u8', Array.from(labelBytes)),
-          payTx.pure.vector('u8', Array.from(ephPub58)),
+          payTx.pure.vector('u8', Array.from(ephPubBytes)),
           payTx.pure.vector('u8', Array.from(payloadBytes)),
         ],
       });
