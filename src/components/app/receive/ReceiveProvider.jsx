@@ -238,7 +238,7 @@ export function ReceiveProvider({ children, username, tag }) {
           }
         )
 
-        setTokenBalances(balances)
+        setTokenBalances(balances.data)
 
         // Handle fixed amount payments
         if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.amountData) {

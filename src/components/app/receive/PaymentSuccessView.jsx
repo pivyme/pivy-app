@@ -5,9 +5,44 @@ import { CheckCircle2Icon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
 import { motion } from 'framer-motion';
 import { getExplorerTxLink } from "@/utils/misc";
 import { Button } from "@heroui/react";
+import solanaLogo from '/chains/solana.svg';
+import suiLogo from '/chains/sui.svg';
+import { useReceive } from "./ReceiveProvider";
 
 export default function PaymentSuccessView({ paymentDetails, stealthData, publicKey }) {
+  const { sourceChain } = useReceive()
   const { signature, amount, token, timestamp } = paymentDetails;
+
+  const renderFromAddress = () => {
+    if (paymentDetails.sourceChain === 'SUI') {
+      return (
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">From</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-900">{paymentDetails.fromAddress?.slice(0, 4)}...{paymentDetails.fromAddress?.slice(-4)}</span>
+            <img src={suiLogo} alt="SUI Chain" className="w-4 h-4" />
+          </div>
+        </div>
+      );
+    } else if (paymentDetails.sourceChain === 'SOLANA') {
+      return (
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">From</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-900">{publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}</span>
+            <img src={solanaLogo} alt="Solana Chain" className="w-4 h-4" />
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">From</span>
+          <span className="font-medium text-gray-900">EVM Wallet</span>
+        </div>
+      );
+    }
+  };
 
   return (
     <AnimateComponent>
@@ -76,17 +111,7 @@ export default function PaymentSuccessView({ paymentDetails, stealthData, public
                   <span className="text-gray-600">To</span>
                   <span className="font-medium text-gray-900">{stealthData.username}</span>
                 </div>
-                {publicKey ? (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">From</span>
-                    <span className="font-medium text-gray-900">{publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}</span>
-                  </div>
-                ) : (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">From</span>
-                    <span className="font-medium text-gray-900">EVM Wallet</span>
-                  </div>
-                )}
+                {renderFromAddress()}
                 {stealthData?.linkData?.label && (
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Label</span>
@@ -99,13 +124,17 @@ export default function PaymentSuccessView({ paymentDetails, stealthData, public
             {/* Actions */}
             <div className="px-6 py-5 space-y-3">
               <a
-                // href={`https://solscan.io/tx/${signature}`}
-                href={getExplorerTxLink(signature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                href={getExplorerTxLink(
+                  signature, 
+                  sourceChain === 'SUI' 
+                    ? (import.meta.env.VITE_IS_TESTNET === "true" ? "SUI_TESTNET" : "SUI_MAINNET")
+                    : (import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-gray-600 font-medium"
               >
-                View on Solscan
+                View on {sourceChain === 'SUI' ? 'Suiscan' : 'Solscan'}
                 <ExternalLinkIcon className="w-4 h-4" />
               </a>
 

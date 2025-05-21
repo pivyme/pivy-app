@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Sui Stealth Address Processing Module
+ * 
+ * This module implements the stealth address protocol for the Sui blockchain,
+ * allowing users to receive payments to unique addresses that can't be linked
+ * to their public address. It uses ED25519 keypairs for all cryptographic operations.
+ * 
+ * @module processSuiStealthAddress
+ */
+
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
@@ -16,6 +26,21 @@ import bs58 from 'bs58';
 const L = BigInt('0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed');
 const mod = (x, n) => ((x % n) + n) % n;
 const ED25519_FLAG = 0x00;
+
+export const getPrivBytes = (kp) => {
+  const { secretKey } = decodeSuiPrivateKey(kp.getSecretKey());
+  return new Uint8Array(secretKey.slice(0, 32));
+};
+export const getPubBytes = (kp) => kp.getPublicKey().toRawBytes();
+
+const utf8 = new TextEncoder();
+export const toBytes = (str) => utf8.encode(str);
+export const pad32 = (u8) => {
+  const out = new Uint8Array(32);
+  out.set(u8.slice(0, 32));
+  return out;
+};
+
 
 /**
  * Converts various input formats to a 32-byte Uint8Array
@@ -60,12 +85,6 @@ const bnTo32BytesLE = (bn) => {
   return bytes;
 };
 
-export const getPrivBytes = (kp) => {
-  const { secretKey } = decodeSuiPrivateKey(kp.getSecretKey());
-  return new Uint8Array(secretKey.slice(0, 32));
-};
-export const getPubBytes = (kp) => kp.getPublicKey().toRawBytes();
-
 /**
  * Clamps a private key according to ED25519 specifications
  * @param {Uint8Array} sk - Private key to clamp
@@ -85,11 +104,11 @@ const clamp = (sk) => {
  * @returns {string} Sui address (0x-prefixed hex)
  */
 const toSuiAddressFromPubBytes = (pubBytes) => {
-  const flaggedPubKey = new Uint8Array(1 + pubBytes.length);
-  flaggedPubKey[0] = ED25519_FLAG;
-  flaggedPubKey.set(pubBytes, 1);
-  const addressBytes = blake2b(flaggedPubKey, { dkLen: 32 });
-  return '0x' + Buffer.from(addressBytes).toString('hex');
+  // Create an Ed25519PublicKey instance from the raw bytes
+  const publicKey = new Ed25519PublicKey(pubBytes);
+
+  // Use the official Sui SDK method to get the address
+  return publicKey.toSuiAddress();
 };
 
 /**
@@ -108,7 +127,7 @@ const scalarFromSeed = (seed32) => {
  * @param {string} metaViewPub - Meta-view public key (base58)
  * @returns {Promise<string>} Encrypted key in base58 format
  */
-async function encryptEphemeralPrivKey(ephPriv32, metaViewPub) {
+export async function encryptEphemeralPrivKey(ephPriv32, metaViewPub) {
   const shared = await ed.getSharedSecret(
     to32u8(ephPriv32),
     to32u8(metaViewPub),
@@ -163,9 +182,10 @@ async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub) {
  * @param {string} metaSpendPub - Meta-spend public key (base58)
  * @param {string} metaViewPub - Meta-view public key (base58)
  * @param {Uint8Array} ephPriv32 - Ephemeral private key
- * @returns {Promise<string>} Stealth public key in base58
+ * @param {string} [metaSpendPrivHex] - Optional meta-spend private key (hex) to compute address
+ * @returns {Promise<{stealthPubKeyB58: string, stealthSuiAddress: string|null}>} Stealth public key in base58 and optional address
  */
-export async function deriveStealthPub(metaSpendPub, metaViewPub, ephPriv32) {
+export async function deriveStealthPub(metaSpendPub, metaViewPub, ephPriv32, metaSpendPrivHex) {
   // tweak = H(e ⨁ B)  mod L
   const shared = await ed.getSharedSecret(
     to32u8(ephPriv32),
@@ -183,96 +203,59 @@ export async function deriveStealthPub(metaSpendPub, metaViewPub, ephPriv32) {
     const S = A.add(ed25519.ExtendedPoint.BASE.multiply(tweak));
     Sbytes = S.toRawBytes();
   }
-  return bs58.encode(Sbytes);
-}
 
-/**
- * Derives a stealth keypair from meta keys and ephemeral private key
- * @param {string} metaSpendPrivHex - Meta-spend private key (hex)
- * @param {string} metaViewPub - Meta-view public key (base58)
- * @param {Uint8Array} ephPriv32 - Ephemeral private key
- * @returns {Promise<StealthSigner>} Stealth signer for transactions
- * @throws {Error} If derived public key doesn't match point addition
- */
-async function deriveStealthKeypair(metaSpendPrivHex, metaViewPub, ephPriv32) {
-  const metaSpendPrivBytes = to32u8(metaSpendPrivHex);
+  // If metaSpendPrivHex is provided, also compute the expected address
+  let stealthSuiAddress = null;
+  if (metaSpendPrivHex) {
+    // Calculate the same scalar that StealthSigner will use
+    const metaSpendPrivBytes = to32u8(metaSpendPrivHex);
+    const a = scalarFromSeed(metaSpendPrivBytes);
+    const s = mod(a + tweak, L);
+    const stealthPrivBytes = bnTo32BytesLE(s);
 
-  // expected pub via point addition (for sanity check later)
-  const metaSpendPubBytes = await ed.getPublicKey(metaSpendPrivBytes);
-  const metaSpendPubB58 = bs58.encode(metaSpendPubBytes);
-  const stealthPubB58 = await deriveStealthPub(metaSpendPubB58, metaViewPub, ephPriv32);
+    // Create a keypair using the same method as StealthSigner
+    const tempKeypair = Ed25519Keypair.fromSecretKey(stealthPrivBytes);
+    stealthSuiAddress = tempKeypair.toSuiAddress();
+  }
 
-  // tweak & stealth scalar
-  const shared = await ed.getSharedSecret(
-    to32u8(ephPriv32),
-    to32u8(metaViewPub),
-  );
-  const tweak = mod(BigInt('0x' + Buffer.from(sha256(shared)).toString('hex')), L);
-
-  const a = scalarFromSeed(metaSpendPrivBytes);
-  const s = mod(a + tweak, L);
-  const sBytes = bnTo32BytesLE(s);
-
-  // confirm math
-  const Sbytes = ed25519.ExtendedPoint.BASE.multiply(s).toRawBytes();
-  if (bs58.encode(Sbytes) !== stealthPubB58)
-    throw new Error('Math mismatch: derived pub ≠ point-add pub');
-
-  return new StealthSigner(sBytes);
+  // Return both the stealth pubkey and address (if available)
+  return {
+    stealthPubKeyB58: bs58.encode(Sbytes),
+    stealthSuiAddress
+  };
 }
 
 /**
  * Custom signer class for handling stealth transactions
  */
 class StealthSigner {
-  /**
-   * Creates a new stealth signer from scalar bytes
-   * @param {Uint8Array} sBytes - Scalar bytes for private key
-   */
-  constructor(sBytes) {
-    this.scalarBytes = sBytes;
+  constructor(sBytes, stealthPubBytes) {
+    this.scalarBytes = sBytes; // Uint8Array(32)
+
+    // Use the provided stealth pub bytes directly
+    this.publicKeyBytes = stealthPubBytes || this.suiKeypair?.getPublicKey().toRawBytes();
+
+    // Create Sui keypair directly from the 32-byte private key
     this.suiKeypair = Ed25519Keypair.fromSecretKey(this.scalarBytes);
-    this.publicKeyBytes = this.suiKeypair.getPublicKey().toRawBytes();
   }
 
-  /**
-   * Gets the public key in base58 format
-   * @returns {string} Base58 encoded public key
-   */
   publicKeyBase58() {
     return bs58.encode(this.publicKeyBytes);
   }
 
-  /**
-   * Gets the Sui address for this stealth keypair
-   * @returns {string} Sui address (0x-prefixed hex)
-   */
   toSuiAddress() {
-    return this.suiKeypair.toSuiAddress();
+    // Create an Ed25519PublicKey from publicKeyBytes to compute the address
+    return this.suiKeypair.toSuiAddress()
   }
 
-  /**
-   * Gets the secret key bytes
-   * @returns {Uint8Array} Secret key bytes
-   */
   getSecretKey() {
     return this.suiKeypair.getSecretKey();
   }
 
-  /**
-   * Signs a message using the stealth keypair
-   * @param {Uint8Array} message - Message to sign
-   * @returns {Promise<Uint8Array>} Signature
-   */
   async signMessage(message) {
     return this.suiKeypair.signPersonalMessage(message);
   }
 
-  /**
-   * Signs a transaction using the stealth keypair
-   * @param {Uint8Array} transaction - Transaction to sign
-   * @returns {Promise<Uint8Array>} Signature
-   */
   async signTransaction(transaction) {
     return this.suiKeypair.signTransaction(transaction);
   }

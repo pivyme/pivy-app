@@ -19,7 +19,8 @@ function SolanaContent() {
     setTokenSearchValue,
     setAmount,
     setPaymentSuccess,
-    normalizeTokenData
+    normalizeTokenData,
+    wallet
   } = useReceive()
 
   return (
@@ -147,7 +148,9 @@ function SolanaContent() {
               signature: sig,
               amount: amount,
               token: selectedToken,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              sourceChain: 'SOLANA',
+              fromAddress: wallet.publicKey
             })
           }}
           onError={(error) => {
@@ -163,27 +166,72 @@ function SuiContent() {
   const {
     tokenBalances,
     selectedToken,
+    tokenSearchValue,
     amount,
     setAmount,
+    setSelectedToken,
+    setTokenSearchValue,
     handlePayment,
     stealthData,
-    setPaymentSuccess
+    setPaymentSuccess,
+    suiWallet,
+    wallet,
+    normalizeTokenData
   } = useReceive()
+
+  useEffect(() => {
+    // Set native token as default when tokenBalances loads and no token is selected
+    if (tokenBalances?.nativeBalance && (!selectedToken || selectedToken.address !== tokenBalances.nativeBalance.mint)) {
+      const nativeToken = {
+        isNative: true,
+        amount: tokenBalances.nativeBalance.amount,
+        decimals: tokenBalances.nativeBalance.decimals,
+        address: tokenBalances.nativeBalance.mint,
+        imageUrl: tokenBalances.nativeBalance.imageUrl,
+        name: tokenBalances.nativeBalance.name,
+        symbol: tokenBalances.nativeBalance.symbol
+      };
+      setSelectedToken(nativeToken);
+      setTokenSearchValue(nativeToken.name);
+      setAmount(0.01);
+    }
+  }, [tokenBalances]);
 
   console.log('selectedToken', selectedToken)
   console.log('tokenBalances', tokenBalances)
 
-  if (!selectedToken) {
+  if (!tokenBalances) {
     return (
       <Skeleton className='w-full h-[8rem] rounded-xl' />
     )
   }
 
-  useEffect(() => {
-    setAmount(0.01)
-  }, [])
+  // Normalize token data for the dropdown
+  const normalizedNativeToken = tokenBalances.nativeBalance ? {
+    isNative: true,
+    amount: tokenBalances.nativeBalance.amount,
+    decimals: tokenBalances.nativeBalance.decimals,
+    address: tokenBalances.nativeBalance.mint,
+    imageUrl: tokenBalances.nativeBalance.imageUrl,
+    name: tokenBalances.nativeBalance.name,
+    symbol: tokenBalances.nativeBalance.symbol
+  } : null;
+
+  const normalizedTokens = tokenBalances.tokenBalance?.map(t => ({
+    isNative: false,
+    amount: t.tokenAmount || 0,  // Use tokenAmount directly from the token balance object
+    decimals: t.token.decimals,
+    address: t.mint,
+    imageUrl: t.token.imageUrl,
+    name: t.token.name,
+    symbol: t.token.symbol
+  })) || [];
+
+  const allTokens = [
+    ...(normalizedNativeToken ? [normalizedNativeToken] : []),
+    ...normalizedTokens
+  ];
   
-  // Dummy implementation for now
   return (
     <div className='space-y-4'>
       {/* Token Balance Display */}
@@ -194,6 +242,72 @@ function SuiContent() {
           </p>
         </div>
       )}
+
+      {/* Token Selection */}
+      <Autocomplete
+        className="w-full"
+        defaultItems={allTokens}
+        defaultSelectedKey={tokenBalances.nativeBalance?.mint}
+        size='lg'
+        placeholder="Search for a token"
+        selectedKey={selectedToken?.address}
+        onSelectionChange={(key) => {
+          const token = allTokens.find(t => t.address === key);
+          setSelectedToken(token);
+          if (token) {
+            setTokenSearchValue(token.name);
+          }
+          setAmount("");
+        }}
+        onInputChange={(value) => {
+          setTokenSearchValue(value);
+          if (!value) {
+            setSelectedToken(null);
+          }
+        }}
+        value={selectedToken?.name || tokenSearchValue}
+        startContent={selectedToken && (
+          selectedToken.imageUrl ? (
+            <img
+              alt={selectedToken.name}
+              className="w-8 h-8 p-0.5 object-cover aspect-square"
+              src={selectedToken.imageUrl}
+            />
+          ) : (
+            <div className="w-8 h-8 flex items-center justify-center">
+              💰
+            </div>
+          )
+        )}
+      >
+        {(item) => (
+          <AutocompleteItem
+            key={item.address}
+            className="data-[selected=true]:bg-primary-500/20"
+            startContent={
+              item.imageUrl ? (
+                <img
+                  alt={item.name}
+                  className="w-8 h-8 p-1 object-cover aspect-square"
+                  src={item.imageUrl}
+                />
+              ) : (
+                <div className="w-8 h-8 flex items-center justify-center">
+                  💰
+                </div>
+              )
+            }
+            textValue={item.name}
+          >
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{item.name}</span>
+              <span className="text-xs text-gray-500">
+                Balance: {item.amount} {item.symbol}
+              </span>
+            </div>
+          </AutocompleteItem>
+        )}
+      </Autocomplete>
 
       {/* Amount Input */}
       <div className="relative">
@@ -228,7 +342,9 @@ function SuiContent() {
             signature: sig,
             amount: amount,
             token: selectedToken,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            sourceChain: 'SUI',
+            fromAddress: wallet.publicKey
           })
         }}
         onError={(error) => {

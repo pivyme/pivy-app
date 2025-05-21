@@ -118,10 +118,10 @@ export const CHAINS = {
       }
     ]
   },
-  SUI_DEVNET: {
-    id: "SUI_DEVNET",
-    rpcUrl: import.meta.env.VITE_SUI_RPC_DEVNET,
-    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_DEVNET,
+  SUI_TESTNET: {
+    id: "SUI_TESTNET",
+    rpcUrl: import.meta.env.VITE_SUI_RPC_TESTNET,
+    stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_TESTNET,
     tokens: [
       {
         name: "USDC",
@@ -147,12 +147,12 @@ export const SUI_CHAINS = {
   MAINNET: {
     id: 'sui:mainnet',
     name: 'Sui Mainnet',
-    rpcUrl: "https://fullnode.testnet.sui.io",
+    rpcUrl: "https://rpc.mainnet.sui.io"
   },
   TESTNET: {
     id: "sui:testnet",
     name: "Sui Testnet",
-    rpcUrl: "https://rpc.mainnet.sui.io"
+    rpcUrl: "https://fullnode.testnet.sui.io",
   }
 }
 
