@@ -530,7 +530,7 @@ export default function FundsCard() {
   const { balances } = useDashboard()
 
   // Calculate total USD value
-  const totalUsdValue = balances?.spl?.reduce((acc, token) => acc + token.usdValue, 0) || 0
+  const totalUsdValue = balances?.tokens?.reduce((acc, token) => acc + token.usdValue, 0) || 0
 
   return (
     <ColorCard color="primary" className='nice-card p-2 w-full'>
@@ -604,7 +604,7 @@ export default function FundsCard() {
 
             {/* Token Grid */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              {balances.spl?.map((token, index) => (
+              {balances.tokens?.map((token, index) => (
                 <TokenCard key={token.mintAddress} token={token} index={index} />
               ))}
             </div>

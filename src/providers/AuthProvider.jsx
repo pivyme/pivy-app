@@ -239,6 +239,7 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(() => {
     setAccessToken(null);
     setLastConnectedAddress(null);
+    // Only clear walletChain on explicit sign out
     setWalletChain(null);
     handleDisconnect();
     setMe(null);
@@ -274,6 +275,7 @@ export function AuthProvider({ children }) {
     fetchMe();
   }, [accessToken, fetchMe]);
 
+  // Effect to handle wallet connections and maintain chain selection
   useEffect(() => {
     if (getWalletState().isConnected && getWalletState().address) {
       if (lastConnectedAddress && lastConnectedAddress !== getWalletState().address) {

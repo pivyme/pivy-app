@@ -72,6 +72,12 @@ export default function Navbar() {
 const WalletButton = () => {
   const { isConnected, connectedAddress, signOut, isSignedIn } = useAuth();
   const { setVisible } = useWalletModal();
+  const { walletChain } = useAuth()
+  console.log('walletChain', walletChain)
+
+  const getChainLogo = () => {
+    return walletChain === 'SOLANA' ? '/chains/solana.svg' : '/chains/sui.svg';
+  };
 
   return (
     <Popover placement="bottom">
@@ -86,9 +92,16 @@ const WalletButton = () => {
               seed={connectedAddress ?? ""}
               className="size-8 border-2 border-black"
             />
-            <p className="font-medium tracking-tight">
-              {shortenAddress(connectedAddress ?? "")}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium tracking-tight">
+                {shortenAddress(connectedAddress ?? "")}
+              </p>
+              <img 
+                src={getChainLogo()} 
+                alt={`${walletChain} chain`} 
+                className="w-5 h-5"
+              />
+            </div>
           </div>
         </Button>
       </PopoverTrigger>
