@@ -133,16 +133,33 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
               <div className="space-y-0 pt-2">
                 <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">Tx Hash</span>
-                  <div className="flex items-center gap-1">
-                    <a
-                      href={getExplorerTxLink(activity.id, activity.chain)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={linkStyles}
-                    >
-                      {shortenAddress(activity.id, 8, 8)}
-                      <ExternalLinkIcon className="w-3.5 h-3.5" />
-                    </a>
+                  <div className="flex flex-col items-end gap-1.5">
+                    {activity.id.includes('|') ? (
+                      // Multiple transactions
+                      activity.id.split('|').map((hash, index) => (
+                        <a
+                          key={hash}
+                          href={getExplorerTxLink(hash, activity.chain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={linkStyles}
+                        >
+                          {shortenAddress(hash, 8, 8)}
+                          <ExternalLinkIcon className="w-3.5 h-3.5" />
+                        </a>
+                      ))
+                    ) : (
+                      // Single transaction
+                      <a
+                        href={getExplorerTxLink(activity.id, activity.chain)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={linkStyles}
+                      >
+                        {shortenAddress(activity.id, 8, 8)}
+                        <ExternalLinkIcon className="w-3.5 h-3.5" />
+                      </a>
+                    )}
                   </div>
                 </div>
 

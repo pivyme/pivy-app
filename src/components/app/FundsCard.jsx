@@ -23,6 +23,7 @@ import gsap from 'gsap'
 import Portal from '../shared/Portal'
 import { shortenAddress, getExplorerTxLink } from '@/utils/misc'
 import BounceButton from '../elements/BounceButton'
+import axios from 'axios'
 
 const validateAddress = (address) => {
   try {
@@ -42,7 +43,7 @@ const to32u8 = raw =>
           : (() => { throw new Error('unsupported key') })();
 
 function TokenCard({ token, index }) {
-  const { accessToken, me, walletChain } = useAuth()
+  const { accessToken, me, walletChain, walletChainId } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const { connection } = useConnection()
   const walletInstance = useWallet()
@@ -56,6 +57,8 @@ function TokenCard({ token, index }) {
   const [isSending, setIsSending] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [lastTxSignature, setLastTxSignature] = useState(null)
+  const [currentTxNumber, setCurrentTxNumber] = useState(0)
+  const [totalTxCount, setTotalTxCount] = useState(0)
 
   console.log({
     token
@@ -264,7 +267,12 @@ function TokenCard({ token, index }) {
         const txResults = [];
         const txDigests = [];
 
+        // Set total transaction count
+        setTotalTxCount(picks.length);
+        setCurrentTxNumber(0);
+
         for (let i = 0; i < picks.length; i++) {
+          setCurrentTxNumber(i + 1);
           const pick = picks[i];
           console.log(`Processing pick ${i + 1}/${picks.length} for ${pick.amount} ${token.symbol}`);
 
@@ -280,9 +288,13 @@ function TokenCard({ token, index }) {
             }
 
             // Sort gas coins by balance and use the largest one
-            const sortedGasCoins = [...gasCoins].sort((a, b) => 
-              BigInt(b.balance) - BigInt(a.balance)
-            );
+            const sortedGasCoins = [...gasCoins].sort((a, b) => {
+              const balanceA = BigInt(a.balance);
+              const balanceB = BigInt(b.balance);
+              if (balanceB > balanceA) return 1;
+              if (balanceB < balanceA) return -1;
+              return 0;
+            });
             const gasCoin = sortedGasCoins[0];
             console.log(`Using gas coin ${gasCoin.coinObjectId} for transaction ${i + 1}`);
 
@@ -442,14 +454,7 @@ function TokenCard({ token, index }) {
 
             // Wait for transaction to be fully confirmed before proceeding
             console.log('Waiting for transaction confirmation...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Add a small delay between transactions
-            if (i < picks.length - 1) {
-              console.log('Waiting before next transaction...');
-              // Sleep for 8 seconds
-              await sleep(2000)
-            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
           } catch (error) {
             console.error(`Failed to process pick ${i + 1}:`, error);
@@ -482,6 +487,23 @@ function TokenCard({ token, index }) {
         });
 
         console.log('=== END WITHDRAWAL SUMMARY ===');
+
+        // Save the withdrawal group for better UX later
+        const withdrawalGroupRes = await axios({
+          url: `${import.meta.env.VITE_BACKEND_URL}/user/sui/withdrawal-group`,
+          method: 'POST',
+          data: {
+            withdrawalId: withdrawalId,
+          },
+          params: {
+            chain: walletChainId
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        })
+
+        console.log('Withdrawal group saved:', withdrawalGroupRes.data)
 
         // Store withdrawal ID and show success if any transactions succeeded
         if (txDigests.length > 0) {
@@ -652,7 +674,11 @@ function TokenCard({ token, index }) {
                     isLoading={isSending}
                     className="bg-primary-500 hover:bg-primary-600 text-gray-900 font-bold tracking-tight w-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
                   >
-                    {isSending ? 'Processing...' : 'Withdraw Funds'}
+                    {isSending 
+                      ? (totalTxCount > 1 
+                          ? `Processing (${currentTxNumber}/${totalTxCount})...` 
+                          : 'Processing...')
+                      : 'Withdraw Funds'}
                   </Button>
                 </div>
               </PopoverContent>
@@ -773,15 +799,34 @@ function TokenCard({ token, index }) {
                       {/* Transaction Hash */}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Transaction</span>
-                        <a
-                          href={getExplorerTxLink(lastTxSignature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
-                        >
-                          {shortenAddress(lastTxSignature, 4, 4)}
-                          <ExternalLinkIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        </a>
+                        <div className="flex flex-col items-end gap-1">
+                          {lastTxSignature.includes('|') ? (
+                            // Multiple transactions
+                            lastTxSignature.split('|').map((hash, index) => (
+                              <a
+                                key={hash}
+                                href={getExplorerTxLink(hash, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
+                              >
+                                {shortenAddress(hash, 4, 4)}
+                                <ExternalLinkIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                              </a>
+                            ))
+                          ) : (
+                            // Single transaction
+                            <a
+                              href={getExplorerTxLink(lastTxSignature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
+                            >
+                              {shortenAddress(lastTxSignature, 4, 4)}
+                              <ExternalLinkIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                            </a>
+                          )}
+                        </div>
                       </div>
 
                       <div className="pt-1 text-xs text-center text-gray-400">

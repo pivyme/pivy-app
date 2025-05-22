@@ -133,11 +133,13 @@ export default function SuiPayButton({
         }
 
         // Sort by balance and use the largest one
-        const sortedGasCoins = [...gasCoins].sort((a, b) => 
-          BigInt(b.balance) - BigInt(a.balance)
-        );
-
-        // Take the largest coin for gas
+        const sortedGasCoins = [...gasCoins].sort((a, b) => {
+          const balanceA = BigInt(a.balance);
+          const balanceB = BigInt(b.balance);
+          if (balanceB > balanceA) return 1;
+          if (balanceB < balanceA) return -1;
+          return 0;
+        });
         const gasCoin = sortedGasCoins[0];
         
         // Set gas payment with the selected coin
@@ -191,9 +193,13 @@ export default function SuiPayButton({
       }
 
       // Sort by balance and use the largest one
-      const sortedGasCoins = [...gasCoins].sort((a, b) => 
-        BigInt(b.balance) - BigInt(a.balance)
-      );
+      const sortedGasCoins = [...gasCoins].sort((a, b) => {
+        const balanceA = BigInt(a.balance);
+        const balanceB = BigInt(b.balance);
+        if (balanceB > balanceA) return 1;
+        if (balanceB < balanceA) return -1;
+        return 0;
+      });
       const gasCoin = sortedGasCoins[0];
 
       // Set gas payment
