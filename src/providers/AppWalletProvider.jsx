@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useMemo } from "react";
+
+/* --------------------------------- Solana --------------------------------- */
 import {
   ConnectionProvider,
   WalletProvider,
@@ -16,7 +18,12 @@ import {
 } from "@solana/wallet-adapter-wallets";
 import '@/styles/wallet.css'
 
+/* ----------------------------------- SUI ---------------------------------- */
+import { WalletProvider as SuiWalletProvider } from '@suiet/wallet-kit';
+import '@suiet/wallet-kit/style.css';
+
 export default function AppWalletProvider({ children }) {
+  /* --------------------------------- Solana --------------------------------- */
   const network =
     import.meta.env.VITE_IS_TESTNET === "true"
       ? WalletAdapterNetwork.Devnet
@@ -27,12 +34,17 @@ export default function AppWalletProvider({ children }) {
     []
   );
 
+  /* ----------------------------------- SUI ---------------------------------- */
+
+
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </WalletModalProvider>
+        <SuiWalletProvider>
+          <WalletModalProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </WalletModalProvider>
+        </SuiWalletProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

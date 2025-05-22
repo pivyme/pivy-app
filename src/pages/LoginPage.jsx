@@ -4,10 +4,13 @@ import { useAuth } from '@/providers/AuthProvider'
 import BounceButton from '@/components/elements/BounceButton'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
-import { ShieldIcon, SmileIcon, ZapIcon } from 'lucide-react'
+import { ArrowRightIcon, ShieldIcon, SmileIcon, ZapIcon } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { Navigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit'
+import ConnectWallet from '@/components/login/ConnectWallet'
+import { WALLET_CHAINS } from '@/providers/AuthProvider'
 import ColorCard from '@/components/elements/ColorCard'
 
 const BENEFITS = [
@@ -80,90 +83,81 @@ const SHOWCASE_LINKS = [
 ];
 
 export default function LoginPage() {
-  const { setVisible, visible } = useWalletModal();
-  const { signIn, isSignedIn } = useAuth();
-  const { connected } = useWallet();
+  const { signIn, isSignedIn, walletChain } = useAuth();
+  const { connected: solanaConnected } = useWallet();
+  const { connected: suiConnected } = useSuiWallet();
 
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
 
-  const [isConnecting, setIsConnecting] = useState(false);
-  async function handleConnect() {
-    setIsConnecting(true);
-    if (connected) {
-      await signIn();
-    } else {
-      setVisible(true);
-    }
-    setIsConnecting(false);
-  }
-
-  if (connected & isSignedIn) {
+  if (isConnected && isSignedIn) {
     return <Navigate to="/" replace />
   }
 
   return (
-    <div className='w-full min-h-screen flex flex-col items-center justify-center px-2 md:px-0'>
-      <AnimateComponent>
-        <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8 mt-[10rem]'>
-          <AnimateComponent delay={200}>
-            <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
-          </AnimateComponent>
+    <div className='w-full min-h-screen flex items-center justify-center'>
+      <div className='flex flex-col items-center'>
+        <AnimateComponent>
+          <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
+            {/* Logo */}
+            <AnimateComponent delay={100}>
+              <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className='w-[10rem]' />
+            </AnimateComponent>
 
-          <AnimateComponent delay={400}>
-            <h1 className='text-4xl font-bold tracking-tight mt-4'>
-              Get Paid, Stay Private
-            </h1>
-          </AnimateComponent>
-          <AnimateComponent delay={500}>
-            <p className='mt-4'>
-              The self-custodial payment toolkit for Solana that keeps your real wallet <span className='font-semibold text-primary-600'>private</span> using <span className='font-semibold text-primary-600'>Stealth Addresses.</span>
-            </p>
-            <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
-              <span className='text-xs font-medium text-primary-700'>✨ The First Ever Stealth Address Implementation on Solana</span>
-              <div className='w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse' />
-            </div>
-          </AnimateComponent>
+            {/* Heading */}
+            <AnimateComponent delay={200}>
+              <h1 className='text-4xl font-bold tracking-tight mt-4'>
+                Get Paid, Stay Private
+              </h1>
+            </AnimateComponent>
 
-          {/* Link Showcase */}
-          <AnimateComponent delay={600}>
-            <BadgePill />
-          </AnimateComponent>
+            {/* Description */}
+            <AnimateComponent delay={300}>
+              <p className='mt-4'>
+                The self-custodial payment toolkit that keeps your real wallet <span className='font-semibold text-primary-600'>private</span> using <span className='font-semibold text-primary-600'>Stealth Addresses.</span>
+              </p>
+              <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
+                <span className='text-xs font-medium text-primary-700'>
+                  {walletChain === "SOLANA" 
+                    ? "✨ The First Ever Stealth Address Implementation on Solana"
+                    : walletChain === "SUI"
+                      ? "✨ The First Ever Stealth Address Implementation on SUI"
+                      : "✨ Multi-Chain Stealth Addresses"
+                  }
+                </span>
+                <div className='w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse' />
+              </div>
+            </AnimateComponent>
 
-          {/* Benefits */}
-          <div className='flex flex-row items-center gap-5 mt-8'>
-            {BENEFITS.map((benefit, index) => (
-              <AnimateComponent
-                key={index}
-                delay={(index * 100) + 600}
-              >
-                <div className='flex flex-col items-center'>
-                  <div className={`flex flex-col items-center rounded-full p-3`}
-                    style={{ backgroundColor: benefit.background }}
-                  >
-                    {benefit.icon}
-                  </div>
-                  <p className='mt-2 font-semibold tracking-tight'>{benefit.text}</p>
-                </div>
-              </AnimateComponent>
-            ))}
+            {/* Link Showcase */}
+            <AnimateComponent delay={400}>
+              <BadgePill />
+            </AnimateComponent>
+
+            {/* Connect Wallet */}
+            <ConnectWallet />
+
           </div>
+        </AnimateComponent>
 
-          {/* Connect Wallet */}
-          <AnimateComponent delay={800}>
-            <BounceButton
-              className='mt-8 tracking-tight font-semibold px-8 py-6 text-xl'
-              radius='full'
-              size='lg'
-              color='primary'
-              onPress={handleConnect}
-              isLoading={isConnecting || visible}
+        {/* Benefits */}
+        <div className='flex flex-row items-center gap-5 mt-8'>
+          {BENEFITS.map((benefit, index) => (
+            <AnimateComponent
+              key={index}
+              delay={1000 + (index * 100)}
             >
-              {connected ? "Sign message to continue" : "Connect Wallet"}
-            </BounceButton>
-          </AnimateComponent>
+              <div className='flex flex-col items-center'>
+                <div className={`flex flex-col items-center rounded-full p-3`}
+                  style={{ backgroundColor: benefit.background }}
+                >
+                  {benefit.icon}
+                </div>
+                <p className='mt-2 font-semibold tracking-tight'>{benefit.text}</p>
+              </div>
+            </AnimateComponent>
+          ))}
         </div>
-      </AnimateComponent>
 
-      <div className='pb-[4rem]'>
         <KnowMoreCard />
       </div>
     </div>
@@ -172,6 +166,7 @@ export default function LoginPage() {
 
 const BadgePill = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -266,77 +261,118 @@ const BadgePill = () => {
   );
 };
 
+
 const KnowMoreCard = () => {
-  const ITEMS = [
-    {
-      title: "PIVY IT UP Music!",
-      description: "See what PIVY's is all about",
-      thumbnail: "/pivy-deck.png",
-      link: "https://youtu.be/rTvB1pWx8Lo",
-      color: "from-purple-500/20 to-blue-500/20"
-    },
-    {
-      title: "Technical Demo",
-      description: "See PIVY's technical overview",
-      thumbnail: "/pivy-technical-overview.png",
-      link: "https://youtu.be/0xSycmjG4tI?si=JZuyX3hFo_-65vkJ",
-      color: "from-green-500/20 to-blue-500/20"
-    },
-  ]
+  const { walletChain } = useAuth();
+  console.log('walletChain', walletChain);
 
-  return (
-    <AnimateComponent delay={900}>
-      <ColorCard color='primary' className='rounded-3xl p-3 mt-12'>
-        <div className='flex flex-col items-center max-w-[48rem] text-center nice-card p-8 rounded-2xl'>
-          <AnimateComponent delay={1000}>
-            <div className='flex flex-col items-center gap-2'>
-              <div className='font-bold text-3xl text-black'>
-                Discover More
-              </div>
-              <div className='text-gray-500 max-w-md -mt-2'>
-                Watch these <span className='font-semibold'>sick music videos</span> to learn more about PIVY
-              </div>
-            </div>
-          </AnimateComponent>
 
-          <div className='grid grid-cols-2 md:grid-cols-2 gap-6 mt-8'>
-            {ITEMS.map((item, index) => (
-              <AnimateComponent key={index} delay={1100 + (index * 100)}>
-                <motion.a
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className='group flex flex-col items-center nice-card border border-gray-200 hover:border-primary-200 rounded-2xl p-5 bg-gradient-to-br hover:shadow-xl transition-all duration-300'
-                >
-                  <div className='relative w-full aspect-video rounded-xl overflow-hidden'>
-                    <img
-                      src={item.thumbnail}
-                      alt={item.title}
-                      className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-110'
-                    />
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4'>
-                      <div className='bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-lg'>
-                        <span className='text-sm font-medium text-primary-600'>Watch Video</span>
-                        <div className='w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center'>
-                          <div className='w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-primary-600 border-b-[5px] border-b-transparent ml-0.5' />
+  if (walletChain === "SUI") {
+    return null;
+  }
+
+  if (walletChain === "SOLANA") {
+
+    const ITEMS = [
+      {
+        title: "PIVY IT UP Music!",
+        description: "See what PIVY's is all about",
+        thumbnail: "/pivy-deck.png",
+        link: "https://youtu.be/rTvB1pWx8Lo",
+        color: "from-purple-500/20 to-blue-500/20"
+      },
+      {
+        title: "Technical Demo",
+        description: "See PIVY's technical overview",
+        thumbnail: "/pivy-technical-overview.png",
+        link: "https://youtu.be/0xSycmjG4tI?si=JZuyX3hFo_-65vkJ",
+        color: "from-green-500/20 to-blue-500/20"
+      },
+    ]
+
+    return (
+      <AnimateComponent delay={900}>
+        <ColorCard color='primary' className='rounded-3xl p-3 mt-12'>
+          <div className='flex flex-col items-center max-w-[48rem] text-center nice-card p-8 rounded-2xl'>
+            <AnimateComponent delay={1000}>
+              <div className='flex flex-col items-center gap-2'>
+                <div className='font-bold text-3xl text-black'>
+                  Discover More
+                </div>
+                <div className='text-gray-500 max-w-md -mt-2'>
+                  Watch these <span className='font-semibold'>sick music videos</span> to learn more about PIVY
+                </div>
+              </div>
+            </AnimateComponent>
+
+            <div className='grid grid-cols-2 md:grid-cols-2 gap-6 mt-8'>
+              {ITEMS.map((item, index) => (
+                <AnimateComponent key={index} delay={1100 + (index * 100)}>
+                  <motion.a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className='group flex flex-col items-center nice-card border border-gray-200 hover:border-primary-200 rounded-2xl p-5 bg-gradient-to-br hover:shadow-xl transition-all duration-300'
+                  >
+                    <div className='relative w-full aspect-video rounded-xl overflow-hidden'>
+                      <img
+                        src={item.thumbnail}
+                        alt={item.title}
+                        className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-110'
+                      />
+                      <div className='absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4'>
+                        <div className='bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-lg'>
+                          <span className='text-sm font-medium text-primary-600'>Watch Video</span>
+                          <div className='w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center'>
+                            <div className='w-0 h-0 border-t-[5px] border-t-transparent border-l-[8px] border-l-primary-600 border-b-[5px] border-b-transparent ml-0.5' />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className='mt-4 text-center'>
-                    <div className='font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent'>
-                      {item.title}
+                    <div className='mt-4 text-center'>
+                      <div className='font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent'>
+                        {item.title}
+                      </div>
+                      <div className='text-sm text-gray-500 mt-1'>
+                        {item.description}
+                      </div>
                     </div>
-                    <div className='text-sm text-gray-500 mt-1'>
-                      {item.description}
-                    </div>
-                  </div>
 
-                  <div className='mt-4 flex items-center gap-2 font-medium'>
-                    <span className='text-sm'>Learn More</span>
+                    <div className='mt-4 flex items-center gap-2 font-medium'>
+                      <span className='text-sm'>Learn More</span>
+                      <motion.div
+                        initial={{ x: 0 }}
+                        animate={{ x: [0, 5, 0] }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        →
+                      </motion.div>
+                    </div>
+                  </motion.a>
+                </AnimateComponent>
+              ))}
+            </div>
+
+            <AnimateComponent delay={1300}>
+              <motion.a
+                href="https://youtu.be/gy2Y3uSIMFg?si=slJmc6t_AI3bzf9K"
+                target="_blank"
+                rel="noopener noreferrer"
+                className='mt-8 group inline-flex items-center gap-3 px-6 py-3 rounded-xl hover:bg-primary/80 transition-all duration-300 bg-primary/30'
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className='flex flex-col items-start'>
+                  <div className='text-sm font-medium text-gray-600'>Want to dive deeper?</div>
+                  <div className='font-semibold text-black flex items-center gap-2'>
+                    See Deck Presentation
                     <motion.div
                       initial={{ x: 0 }}
                       animate={{ x: [0, 5, 0] }}
@@ -349,41 +385,12 @@ const KnowMoreCard = () => {
                       →
                     </motion.div>
                   </div>
-                </motion.a>
-              </AnimateComponent>
-            ))}
-          </div>
-
-          <AnimateComponent delay={1300}>
-            <motion.a
-              href="https://youtu.be/gy2Y3uSIMFg?si=slJmc6t_AI3bzf9K"
-              target="_blank"
-              rel="noopener noreferrer"
-              className='mt-8 group inline-flex items-center gap-3 px-6 py-3 rounded-xl hover:bg-primary/80 transition-all duration-300 bg-primary/30'
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className='flex flex-col items-start'>
-                <div className='text-sm font-medium text-gray-600'>Want to dive deeper?</div>
-                <div className='font-semibold text-black flex items-center gap-2'>
-                  See Deck Presentation
-                  <motion.div
-                    initial={{ x: 0 }}
-                    animate={{ x: [0, 5, 0] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    →
-                  </motion.div>
                 </div>
-              </div>
-            </motion.a>
-          </AnimateComponent>
-        </div>
-      </ColorCard>
-    </AnimateComponent>
-  )
+              </motion.a>
+            </AnimateComponent>
+          </div>
+        </ColorCard>
+      </AnimateComponent>
+    )
+  }
 }

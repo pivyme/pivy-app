@@ -1,10 +1,10 @@
 import { useAuth } from '@/providers/AuthProvider';
-import axios from 'axios';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Tab, Tabs } from '@heroui/react';
-import { WalletIcon, ArrowDownLeftIcon, ArrowUpRightIcon, SparklesIcon } from 'lucide-react';
+import { WalletIcon, ArrowDownLeftIcon, ArrowUpRightIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ActivityItem from './ActivityItem';
+import { useDashboard } from '@/contexts/DashboardContext';
 
 const EmptyState = ({ type }) => {
   const states = {
@@ -44,10 +44,9 @@ const EmptyState = ({ type }) => {
 };
 
 export default function ActivityCard() {
-  const { accessToken } = useAuth();
-  const [activities, setActivities] = useState([]);
   const [selectedTab, setSelectedTab] = useState('all');
   const [expandedItems, setExpandedItems] = useState(new Set());
+  const { activities } = useDashboard();
 
   console.log('activities', activities)
 
@@ -68,33 +67,6 @@ export default function ActivityCard() {
       icon: <ArrowUpRightIcon className='w-3.5 h-3.5' />
     }
   ];
-
-  const handleFetchActivities = async () => {
-    try {
-      const activities = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/user/activities`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        },
-        params: {
-          chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
-        }
-      });
-      setActivities(activities.data);
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Initial fetch
-    handleFetchActivities();
-
-    // Set up polling interval
-    const intervalId = setInterval(handleFetchActivities, 5000);
-
-    // Cleanup interval on unmount
-    return () => clearInterval(intervalId);
-  }, []);
 
   const filteredActivities = activities?.filter(activity => {
     if (selectedTab === 'all') return true;

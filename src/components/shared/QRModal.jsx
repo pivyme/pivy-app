@@ -1,8 +1,8 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import Modal from './Modal';
 import { motion } from 'framer-motion';
 import ColorCard from '../elements/ColorCard';
+import Modal from './Modal';
 
 export default function QRModal({ isOpen, onClose, url, label, color, emoji }) {
   return (

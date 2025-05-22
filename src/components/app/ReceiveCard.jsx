@@ -315,7 +315,6 @@ const AddressTab = () => {
   const handleRefresh = () => {
     if (isRefreshing) return
     setIsRefreshing(true)
-    // TODO: Implement address refresh
     setTimeout(() => setIsRefreshing(false), 600)
   }
 

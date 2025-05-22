@@ -1,21 +1,22 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { isTestnet, SUI_CHAINS } from "@/config";
+
+/* --------------------------------- SOLANA --------------------------------- */
 import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
-import { AuthProvider } from "./AuthProvider";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
-// EVM stuff
+/* ----------------------------------- EVM ---------------------------------- */
 import '@rainbow-me/rainbowkit/styles.css';
 import {
   getDefaultConfig,
@@ -46,6 +47,10 @@ import {
   QueryClient,
 } from "@tanstack/react-query";
 
+/* ----------------------------------- SUI ---------------------------------- */
+import { WalletProvider as SuiWalletProvider } from '@suiet/wallet-kit';
+import '@suiet/wallet-kit/style.css';
+
 import { CHAINS } from "@/config";
 
 const queryClient = new QueryClient();
@@ -58,7 +63,6 @@ export default function ReceiveWalletProvider({ children }) {
       : WalletAdapterNetwork.Mainnet;
 
   const chain = CHAINS[import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"];
-  // const endpoint = useMemo(() => clusterApiUrl(network), [network]);
   const endpoint = chain.rpcUrl;
 
   const wallets = useMemo(
@@ -80,23 +84,6 @@ export default function ReceiveWalletProvider({ children }) {
     ssr: false,
   });
 
-  console.log({
-    // MAINNETS
-    mainnet,
-    base,
-    polygon,
-    arbitrum,
-    avalanche,
-    optimism,
-    // TESTNETS
-    sepolia,
-    baseSepolia,
-    polygonAmoy,
-    arbitrumSepolia,
-    avalancheFuji,
-    optimismSepolia
-  })
-
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider
@@ -104,7 +91,7 @@ export default function ReceiveWalletProvider({ children }) {
         autoConnect={true}
       >
         <WalletModalProvider>
-
+          {/* EVM Provider */}
           <WagmiProvider config={config} reconnect={true}>
             <QueryClientProvider client={queryClient}>
               <RainbowKitProvider
@@ -116,13 +103,16 @@ export default function ReceiveWalletProvider({ children }) {
                   fontStack: 'system',
                   overlayBlur: 'small',
                 })}
-
               >
-                {children}
+                {/* SUI Provider */}
+                <SuiWalletProvider
+                  chains={[isTestnet ? SUI_CHAINS.TESTNET : SUI_CHAINS.MAINNET]}
+                >
+                  {children}
+                </SuiWalletProvider>
               </RainbowKitProvider>
             </QueryClientProvider>
           </WagmiProvider>
-
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

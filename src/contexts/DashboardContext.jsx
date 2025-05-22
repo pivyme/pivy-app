@@ -17,7 +17,7 @@ const DashboardContext = createContext({
 let lastRefreshTime = 0;
 
 export function DashboardProvider({ children }) {
-  const { accessToken, me } = useAuth();
+  const { accessToken, me, walletChainId } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [balances, setBalances] = useState(null);
@@ -36,12 +36,11 @@ export function DashboardProvider({ children }) {
             Authorization: `Bearer ${accessToken}`,
           },
           params: {
-            chain: import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"
+            chain: walletChainId
           }
         }
       );
 
-      console.log("Balances response:", data);
       setBalances(data);
     } catch (error) {
       console.error("Error fetching balances:", error);
@@ -61,13 +60,12 @@ export function DashboardProvider({ children }) {
             Authorization: `Bearer ${accessToken}`,
           },
           params: {
-            limit: 20,
-            offset: 0,
+            chain: walletChainId
           },
         }
       );
 
-      setActivities(data.transactions);
+      setActivities(data);
     } catch (error) {
       console.error("Error fetching transactions:", error);
     }

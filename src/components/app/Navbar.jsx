@@ -8,15 +8,30 @@ import {
 } from "@solana/wallet-adapter-react-ui";
 import React, { useEffect } from "react";
 import { useAuth } from "../../providers/AuthProvider";
-import { Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
-import { LogOutIcon } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent, Select, SelectItem } from "@heroui/react";
+import { LogOutIcon, ChevronDownIcon } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import GradientProfilePicture from "../shared/GradientProfilePicture";
 import { shortenAddress } from "@/utils/misc";
 import AnimateComponent from "@/components/elements/AnimateComponent";
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
+import { WALLET_CHAINS } from '@/providers/AuthProvider';
+
+const CHAIN_DETAILS = {
+  [WALLET_CHAINS.SOLANA]: {
+    name: 'Solana',
+    logo: '/chains/solana.svg',
+    color: '#9945FF',
+  },
+  [WALLET_CHAINS.SUI]: {
+    name: 'Sui',
+    logo: '/chains/sui.svg',
+    color: '#6FBCF0',
+  }
+};
 
 export default function Navbar() {
-  const { connected } = useWallet();
+  const { isConnected } = useAuth();
   const isSubdomain = window.location.hostname !== 'localhost' && (
     window.location.hostname.split('.').length > 2 ||
     (window.location.hostname.endsWith('.localhost') && window.location.hostname !== 'localhost')
@@ -40,7 +55,7 @@ export default function Navbar() {
   return (
     <div className="w-full max-w-2xl z-50 fixed py-4 left-1/2 -translate-x-1/2 top-[1rem]">
       <div className="flex flex-row items-center justify-between bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 min-h-[4.5rem]">
-        {connected ? (
+        {isConnected ? (
           <>
             <AnimateComponent delay={100}>
               <Link to={getMainDomainUrl()} className="hover:opacity-80 transition-opacity">
@@ -50,6 +65,7 @@ export default function Navbar() {
 
             <AnimateComponent delay={200}>
               <div className="flex flex-row items-center gap-2 h-full">
+                <ChainSelector />
                 <WalletButton />
               </div>
             </AnimateComponent>
@@ -60,6 +76,7 @@ export default function Navbar() {
               <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className="h-9" />
             </Link>
             <div className="flex flex-row items-center gap-2 h-full">
+              <ChainSelector />
               <div className="h-[2.75rem]" />
             </div>
           </>
@@ -69,10 +86,53 @@ export default function Navbar() {
   );
 }
 
+const ChainSelector = () => {
+  const { walletChain, setWalletChain } = useAuth();
+  const { connected: solanaConnected, disconnect: disconnectSolana } = useWallet();
+  const { connected: suiConnected, disconnect: disconnectSui } = useSuiWallet();
+
+  const handleChainSwitch = async (newChain) => {
+    if (!newChain) return; // Prevent undefined chain selection
+    
+    if (newChain !== walletChain) {
+      // Disconnect current wallet if connected
+      if (solanaConnected && walletChain === WALLET_CHAINS.SOLANA) {
+        await disconnectSolana();
+      } else if (suiConnected && walletChain === WALLET_CHAINS.SUI) {
+        await disconnectSui();
+      }
+      // Force chain change from navbar
+      setWalletChain(newChain, true);
+    }
+  };
+
+  return (
+    <Select
+      selectedKeys={[walletChain]}
+      onChange={(e) => handleChainSwitch(e.target.value)}
+      className="w-[8rem]"
+      startContent={<img src={CHAIN_DETAILS[walletChain].logo} alt={CHAIN_DETAILS[walletChain].name} className="w-4 h-4" />}
+    >
+      {Object.entries(CHAIN_DETAILS).map(([chain, details]) => (
+        <SelectItem
+          key={chain}
+          value={chain}
+          textValue={details.name}
+        >
+          <div className="flex items-center gap-2">
+            <img src={details.logo} alt={details.name} className="w-4 h-4" />
+            <span>{details.name}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </Select>
+  );
+};
+
 const WalletButton = () => {
-  const { connected, publicKey } = useWallet();
-  const { signOut, isSignedIn } = useAuth();
+  const { isConnected, connectedAddress, signOut, isSignedIn } = useAuth();
   const { setVisible } = useWalletModal();
+
   return (
     <Popover placement="bottom">
       <PopoverTrigger>
@@ -83,11 +143,11 @@ const WalletButton = () => {
         >
           <div className="flex flex-row items-center gap-2">
             <GradientProfilePicture
-              seed={publicKey?.toBase58() ?? ""}
+              seed={connectedAddress ?? ""}
               className="size-8 border-2 border-black"
             />
             <p className="font-medium tracking-tight">
-              {shortenAddress(publicKey?.toBase58() ?? "")}
+              {shortenAddress(connectedAddress ?? "")}
             </p>
           </div>
         </Button>
@@ -101,8 +161,8 @@ const WalletButton = () => {
         >
           <div className="flex flex-row items-center gap-2">
             <LogOutIcon className="size-4" />
-            {connected && !isSignedIn && <p className="text-sm">Disconnect</p>}
-            {connected && isSignedIn && <p className="text-sm">Sign Out</p>}
+            {isConnected && !isSignedIn && <p className="text-sm">Disconnect</p>}
+            {isConnected && isSignedIn && <p className="text-sm">Sign Out</p>}
           </div>
         </Button>
       </PopoverContent>
