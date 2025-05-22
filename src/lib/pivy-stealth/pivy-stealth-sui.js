@@ -41,6 +41,38 @@ export const pad32 = (u8) => {
   return out;
 };
 
+class StealthSigner {
+  constructor(sBytes, stealthPubBytes) {
+    this.scalarBytes = sBytes; // Uint8Array(32)
+
+    // Use the provided stealth pub bytes directly
+    this.publicKeyBytes = stealthPubBytes || this.suiKeypair?.getPublicKey().toRawBytes();
+
+    // Create Sui keypair directly from the 32-byte private key
+    this.suiKeypair = Ed25519Keypair.fromSecretKey(this.scalarBytes);
+  }
+
+  publicKeyBase58() {
+    return bs58.encode(this.publicKeyBytes);
+  }
+
+  toSuiAddress() {
+    // Create an Ed25519PublicKey from publicKeyBytes to compute the address
+    return this.suiKeypair.toSuiAddress()
+  }
+
+  getSecretKey() {
+    return this.suiKeypair.getSecretKey();
+  }
+
+  async signMessage(message) {
+    return this.suiKeypair.signPersonalMessage(message);
+  }
+
+  async signTransaction(transaction) {
+    return this.suiKeypair.signTransaction(transaction);
+  }
+}
 
 /**
  * Converts various input formats to a 32-byte Uint8Array
@@ -155,7 +187,7 @@ export async function encryptEphemeralPrivKey(ephPriv32, metaViewPub) {
  * @returns {Promise<Uint8Array>} Decrypted ephemeral private key
  * @throws {Error} If decryption fails or public key verification fails
  */
-async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub) {
+export async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub) {
   const payload = bs58.decode(encodedPayload);
   const encrypted = payload.slice(24); // first 24 bytes = nonce (ignored)
 
@@ -176,6 +208,43 @@ async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub) {
 
   return ephPriv32;
 }
+
+/**
+ * Derives a stealth keypair from meta keys and ephemeral private key
+ * @param {string} metaSpendPrivHex - Meta-spend private key (hex)
+ * @param {string} metaViewPub - Meta-view public key (base58)
+ * @param {Uint8Array} ephPriv32 - Ephemeral private key
+ * @returns {Promise<StealthSigner>} Stealth signer for transactions
+ * @throws {Error} If derived public key doesn't match point addition
+ */
+export async function deriveStealthKeypair(metaSpendPrivHex, metaViewPub, ephPriv32) {
+  const metaSpendPrivBytes = to32u8(metaSpendPrivHex);
+
+  // expected pub via point addition (for sanity check later)
+  const metaSpendPubBytes = await ed.getPublicKey(metaSpendPrivBytes);
+  const metaSpendPubB58 = bs58.encode(metaSpendPubBytes);
+  const stealthPubB58 = await deriveStealthPub(metaSpendPubB58, metaViewPub, ephPriv32, metaSpendPrivHex);
+  console.log('========= stealthPubB58 ========', stealthPubB58)
+
+  // tweak & stealth scalar
+  const shared = await ed.getSharedSecret(
+    to32u8(ephPriv32),
+    to32u8(metaViewPub),
+  );
+  const tweak = mod(BigInt('0x' + Buffer.from(sha256(shared)).toString('hex')), L);
+
+  const a = scalarFromSeed(metaSpendPrivBytes);
+  const s = mod(a + tweak, L);
+  const sBytes = bnTo32BytesLE(s);
+
+  // confirm math
+  const Sbytes = ed25519.ExtendedPoint.BASE.multiply(s).toRawBytes();
+  if (bs58.encode(Sbytes) !== stealthPubB58.stealthPubKeyB58)
+    throw new Error('Math mismatch: derived pub ≠ point-add pub');
+
+  return new StealthSigner(sBytes, Sbytes);
+}
+
 
 /**
  * Derives a stealth public key from meta keys and ephemeral private key
@@ -257,3 +326,4 @@ export const prepareSuiUsdcEvmPayment = async ({
     ephPub: ephPub58
   }
 }
+

@@ -41,7 +41,6 @@ export function DashboardProvider({ children }) {
         }
       );
 
-      console.log("Balances response:", data);
       setBalances(data);
     } catch (error) {
       console.error("Error fetching balances:", error);
@@ -65,8 +64,6 @@ export function DashboardProvider({ children }) {
           },
         }
       );
-
-      console.log('Activities response:', data);
 
       setActivities(data);
     } catch (error) {

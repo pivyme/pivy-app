@@ -5,14 +5,19 @@ import ColorCard from '../elements/ColorCard'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@heroui/react'
-import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction as SolanaTransaction } from '@solana/web3.js'
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { decryptEphemeralPrivKey, loadPivyProgram, deriveStealthKeypair } from '@/lib/pivy-stealth/pivy-stealth'
+import { decryptEphemeralPrivKey as decryptEphemeralPrivKeySui, deriveStealthKeypair as deriveStealthKeypairSui } from '@/lib/pivy-stealth/pivy-stealth-sui';
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
+import { SuiClient } from '@mysten/sui/client';
+import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
+
 import * as ed from '@noble/ed25519'
 import bs58 from 'bs58'
 import BN from 'bn.js';
-import { CHAINS } from '@/config'
+import { CHAINS, isTestnet } from '@/config'
 import { sleep } from '@/utils/process'
 import gsap from 'gsap'
 import Portal from '../shared/Portal'
@@ -37,14 +42,16 @@ const to32u8 = raw =>
           : (() => { throw new Error('unsupported key') })();
 
 function TokenCard({ token, index }) {
-  const { accessToken, me } = useAuth()
+  const { accessToken, me, walletChain } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const { connection } = useConnection()
   const walletInstance = useWallet()
   const backdropRef = useRef(null)
 
-  const [amount, setAmount] = useState("")
-  const [address, setAddress] = useState("")
+  const suiWallet = useSuiWallet()
+
+  const [amount, setAmount] = useState("1")
+  const [address, setAddress] = useState("0x64919940bafb0bff8c93d0215884697c4f51890467ad8c115047c69a08eab7d4")
   const [error, setError] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
@@ -62,11 +69,6 @@ function TokenCard({ token, index }) {
       return
     }
 
-    if (!amount) {
-      setError('Please enter an amount')
-      return
-    }
-
     if (amount > token.total) {
       setError('Amount is greater than balance')
       return
@@ -77,140 +79,406 @@ function TokenCard({ token, index }) {
       return
     }
 
-    if (!validateAddress(address)) {
-      setError('Invalid Solana address')
-      return
-    }
-
     if (amount <= 0) {
       setError('Amount must be greater than 0')
       return
+    }
+
+    // Validate Solana address
+    if (walletChain === 'SOLANA') {
+      if (!validateAddress(address)) {
+        setError('Invalid Solana address')
+        return
+      }
+    }
+
+    // Validate SUI address
+    if (walletChain === 'SUI') {
+      console.log('SUI address', address)
     }
 
     setError(null)
     setIsSending(true)
 
     try {
-      console.log(`Sending ${amount} ${token.symbol} to ${address}`)
+      if (walletChain === 'SOLANA') {
+        console.log(`Sending ${amount} ${token.symbol} to ${address}`)
 
-      const chain = CHAINS[import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"]
+        const chain = CHAINS[import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET"]
 
-      const program = await loadPivyProgram(
-        connection,
-        walletInstance,
-        new PublicKey(chain.stealthProgramId)
-      )
-
-      const balances = token.balances.sort((a, b) => b.amount - a.amount).filter(b => b.amount > 0)
-      console.log(balances)
-
-      const picks = []
-      let remaining = amount
-
-      for (const balance of balances) {
-        if (remaining <= 0) break
-
-        const pick = Math.min(balance.amount, remaining)
-
-        picks.push({
-          address: balance.address,
-          ephemeralPubkey: balance.ephemeralPubkey,
-          memo: balance.memo,
-          mint: balance.mint,
-          amount: pick
-        })
-
-        remaining -= pick
-      }
-
-      console.log('Picked wallets:', picks)
-
-      const mint = new PublicKey(token.mintAddress)
-
-      const destinationOwner = new PublicKey(address)
-      const destinationAta = getAssociatedTokenAddressSync(
-        mint,
-        destinationOwner
-      )
-
-      console.log('Destination ATA:', destinationAta.toBase58())
-
-      const ixs = [];
-
-      // 1) ensure destination ATA exists
-      if (!(await connection.getAccountInfo(destinationAta))) {
-        console.log('Creating destination ATA…');
-        ixs.push(
-          createAssociatedTokenAccountInstruction(
-            walletInstance.publicKey,
-            destinationAta,
-            destinationOwner,
-            mint
-          )
-        );
-      }
-
-      // 2) for each picked stealth payment…
-      const stealthSigners = [];
-      for (const pick of picks) {
-        const decryptedEphPriv = await decryptEphemeralPrivKey(
-          pick.memo,
-          me.metaViewPriv,
-          pick.ephemeralPubkey,
-        );
-
-        console.log("decryptedEphPriv", decryptedEphPriv);
-
-        const stealthKP = await deriveStealthKeypair(
-          me.metaSpendPriv,
-          me.metaViewPub,
-          decryptedEphPriv,
-        );
-
-        const stealthAta = getAssociatedTokenAddressSync(
-          mint,
-          stealthKP.publicKey
+        const program = await loadPivyProgram(
+          connection,
+          walletInstance,
+          new PublicKey(chain.stealthProgramId)
         )
 
-        console.log('stealthATA', stealthAta.toBase58())
-        stealthSigners.push(stealthKP)
+        const balances = token.balances.sort((a, b) => b.amount - a.amount).filter(b => b.amount > 0)
+        console.log(balances)
 
-        ixs.push(
-          await program.methods
-            .withdraw({
-              amount: new BN(pick.amount * 10 ** token.decimals),
-            })
-            .accounts({
-              stealthOwner: stealthKP.publicKey,
-              stealthAta: stealthAta,
-              destinationAta: destinationAta,
-              mint: mint,
-              tokenProgram: TOKEN_PROGRAM_ID,
-            })
-            .instruction()
-        );
+        const picks = []
+        let remaining = BigInt(Math.floor(amount * (10 ** token.decimals)))
+
+        for (const balance of balances) {
+          if (remaining <= 0n) break
+
+          const balanceAmount = BigInt(Math.floor(balance.amount * (10 ** token.decimals)))
+          const pick = remaining < balanceAmount ? remaining : balanceAmount
+
+          picks.push({
+            address: balance.address,
+            ephemeralPubkey: balance.ephemeralPubkey,
+            memo: balance.memo,
+            mint: token.mintAddress,
+            amount: Number(pick) / (10 ** token.decimals)
+          })
+
+          remaining -= pick
+        }
+
+        console.log('Picked wallets:', picks)
+
+        const mint = new PublicKey(token.mintAddress)
+
+        const destinationOwner = new PublicKey(address)
+        const destinationAta = getAssociatedTokenAddressSync(
+          mint,
+          destinationOwner
+        )
+
+        console.log('Destination ATA:', destinationAta.toBase58())
+
+        const ixs = [];
+
+        // 1) ensure destination ATA exists
+        if (!(await connection.getAccountInfo(destinationAta))) {
+          console.log('Creating destination ATA…');
+          ixs.push(
+            createAssociatedTokenAccountInstruction(
+              walletInstance.publicKey,
+              destinationAta,
+              destinationOwner,
+              mint
+            )
+          );
+        }
+
+        // 2) for each picked stealth payment…
+        const stealthSigners = [];
+        for (const pick of picks) {
+          const decryptedEphPriv = await decryptEphemeralPrivKey(
+            pick.memo,
+            me.metaViewPriv,
+            pick.ephemeralPubkey,
+          );
+
+          console.log("decryptedEphPriv", decryptedEphPriv);
+
+          const stealthKP = await deriveStealthKeypair(
+            me.metaSpendPriv,
+            me.metaViewPub,
+            decryptedEphPriv,
+          );
+
+          const stealthAta = getAssociatedTokenAddressSync(
+            mint,
+            stealthKP.publicKey
+          )
+
+          console.log('stealthATA', stealthAta.toBase58())
+          stealthSigners.push(stealthKP)
+
+          ixs.push(
+            await program.methods
+              .withdraw({
+                amount: new BN(pick.amount * 10 ** token.decimals),
+              })
+              .accounts({
+                stealthOwner: stealthKP.publicKey,
+                stealthAta: stealthAta,
+                destinationAta: destinationAta,
+                mint: mint,
+                tokenProgram: TOKEN_PROGRAM_ID,
+              })
+              .instruction()
+          );
+        }
+        // 3) assemble + partial sign + send
+        const tx = new SolanaTransaction().add(...ixs);
+        tx.feePayer = walletInstance.publicKey;
+        tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+        // await Promise.all(stealthSigners.map(s => s.signTransaction(tx)));
+
+        for (const stealthSigner of stealthSigners) {
+          await stealthSigner.signTransaction(tx);
+        }
+
+        // now send the fully-signed tx
+        const signed = await walletInstance.signTransaction(tx);
+        const sig = await connection.sendRawTransaction(signed.serialize(), {
+          skipPreflight: true,
+        });
+        await connection.confirmTransaction(sig, 'confirmed');
+        await sleep(4000)
+        console.log('Withdrawal successful:', sig);
+        setLastTxSignature(sig);
+        setShowSuccessDialog(true);
+        setIsOpen(false); // Close the popover
       }
-      // 3) assemble + partial sign + send
-      const tx = new Transaction().add(...ixs);
-      tx.feePayer = walletInstance.publicKey;
-      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-      // await Promise.all(stealthSigners.map(s => s.signTransaction(tx)));
 
-      for (const stealthSigner of stealthSigners) {
-        await stealthSigner.signTransaction(tx);
+
+      if (walletChain === 'SUI') {
+        console.log(`Sending ${amount} ${token.symbol} to ${address}`)
+
+        const chain = isTestnet ? CHAINS.SUI_TESTNET : CHAINS.SUI_MAINNET
+        const stealthProgramId = chain.stealthProgramId
+
+        // Create SUI client
+        const suiClient = new SuiClient({ url: chain.rpcUrl });
+
+        const balances = token.balances.sort((a, b) => b.amount - a.amount).filter(b => b.amount > 0)
+        console.log('balances', balances)
+
+        const picks = []
+        let remaining = BigInt(Math.floor(amount * (10 ** token.decimals)))
+
+        for (const balance of balances) {
+          if (remaining <= 0n) break
+
+          const balanceAmount = BigInt(Math.floor(balance.amount * (10 ** token.decimals)))
+          const pick = remaining < balanceAmount ? remaining : balanceAmount
+
+          picks.push({
+            address: balance.address,
+            ephemeralPubkey: balance.ephemeralPubkey,
+            memo: balance.memo,
+            mint: token.mintAddress,
+            amount: Number(pick) / (10 ** token.decimals)
+          })
+
+          remaining -= pick
+        }
+
+        console.log('Picked wallets:', picks)
+
+        // Get gas coins from user wallet for sponsoring
+        const { data: gasCoins } = await suiClient.getCoins({
+          owner: suiWallet.account.address,
+          coinType: '0x2::sui::SUI'
+        });
+
+        if (gasCoins.length === 0) {
+          throw new Error('No gas coins found in wallet');
+        }
+
+        // Process each pick one at a time - build, sign, and execute before moving to next
+        const txResults = [];
+        const txDigests = [];
+
+        for (let i = 0; i < picks.length; i++) {
+          const pick = picks[i];
+          console.log(`Processing pick ${i + 1}/${picks.length} for ${pick.amount} ${token.symbol}`);
+
+          try {
+            // Derive stealth keypair
+            console.log('Deriving stealth keypair...');
+            const decryptedEphPriv = await decryptEphemeralPrivKeySui(
+              pick.memo,
+              me.metaViewPriv,
+              pick.ephemeralPubkey,
+            );
+
+            const stealthKP = await deriveStealthKeypairSui(
+              me.metaSpendPriv,
+              me.metaViewPub,
+              decryptedEphPriv
+            );
+
+            // Verify the stealth keypair matches the pick address
+            const isStealthKpValid = stealthKP.toSuiAddress() === pick.address;
+            console.log({
+              pickAddress: pick.address,
+              stealthKPAddress: stealthKP.toSuiAddress(),
+              match: isStealthKpValid ? '✅' : '❌'
+            });
+
+            if (!isStealthKpValid) {
+              throw new Error(`Stealth keypair does not match pick address: ${pick.address}`);
+            }
+
+            // Get coins owned by stealth address
+            console.log('Fetching coins...');
+            const { data: coins } = await suiClient.getCoins({
+              owner: pick.address,
+              coinType: pick.mint
+            });
+
+            if (coins.length === 0) {
+              throw new Error(`No coins found for stealth address ${pick.address}`);
+            }
+
+            // Create new transaction for this pick
+            console.log('Building transaction...');
+            const withdrawTx = new SuiTransaction();
+
+            // Find coins that sum up to the pick amount
+            let remainingAmount = BigInt(Math.floor(pick.amount * (10 ** token.decimals)));
+            const coinsToUse = [];
+
+            for (const coin of coins) {
+              if (remainingAmount <= 0n) break;
+              coinsToUse.push(coin);
+              remainingAmount -= BigInt(coin.balance);
+            }
+
+            if (remainingAmount > 0n) {
+              throw new Error(`Insufficient balance in stealth address ${pick.address}`);
+            }
+
+            let finalCoin;
+
+            if (coinsToUse.length === 1 && remainingAmount === 0n) {
+              // Perfect match - use the coin directly
+              finalCoin = withdrawTx.object(coinsToUse[0].coinObjectId);
+            } else {
+              // Need to merge or split coins
+              if (coinsToUse.length > 1) {
+                // Merge multiple coins into the first one
+                const primaryCoin = withdrawTx.object(coinsToUse[0].coinObjectId);
+                const otherCoins = coinsToUse.slice(1).map(coin => withdrawTx.object(coin.coinObjectId));
+                withdrawTx.mergeCoins(primaryCoin, otherCoins);
+                finalCoin = primaryCoin;
+              } else {
+                finalCoin = withdrawTx.object(coinsToUse[0].coinObjectId);
+              }
+
+              // If we have more than needed, split the coin
+              if (remainingAmount < 0n) {
+                const exactAmount = BigInt(Math.floor(pick.amount * (10 ** token.decimals)));
+                const [splitCoin] = withdrawTx.splitCoins(finalCoin, [withdrawTx.pure.u64(exactAmount)]);
+                finalCoin = splitCoin;
+              }
+            }
+
+            // Call the withdraw function
+            console.log('Adding withdraw call...');
+            try {
+              withdrawTx.moveCall({
+                target: `${stealthProgramId}::pivy_stealth::withdraw`,
+                typeArguments: [pick.mint],
+                arguments: [
+                  finalCoin,
+                  withdrawTx.pure(address, 'address'),
+                ],
+              });
+            } catch (moveCallError) {
+              console.warn('Move call failed, falling back to direct transfer:', moveCallError);
+              withdrawTx.transferObjects([finalCoin], withdrawTx.pure.address(address));
+            }
+
+            // Build transaction kind bytes
+            console.log('Building transaction kind bytes...');
+            let txKindBytes;
+            try {
+              txKindBytes = await withdrawTx.build({
+                client: suiClient,
+                onlyTransactionKind: true
+              });
+            } catch (buildError) {
+              throw new Error(`Transaction build failed: ${buildError.message}`);
+            }
+
+            // Create sponsored transaction
+            console.log('Creating sponsored transaction...');
+            const sponsoredTx = SuiTransaction.fromKind(txKindBytes);
+            sponsoredTx.setSender(pick.address);
+            sponsoredTx.setGasOwner(suiWallet.account.address);
+            sponsoredTx.setGasPayment([{
+              objectId: gasCoins[Math.min(i, gasCoins.length - 1)].coinObjectId,
+              version: gasCoins[Math.min(i, gasCoins.length - 1)].version,
+              digest: gasCoins[Math.min(i, gasCoins.length - 1)].digest
+            }]);
+
+            // Build final transaction bytes
+            console.log('Building final transaction...');
+            const finalTxBytes = await sponsoredTx.build({ client: suiClient });
+
+            // Sign and execute immediately
+            console.log('Signing transaction...');
+            const signatures = [];
+
+            // Get stealth signature
+            const stealthSignature = await stealthKP.signTransaction(finalTxBytes);
+            signatures.push(stealthSignature.signature);
+
+            // Get sponsor signature (user wallet)
+            const userSignatureResult = await suiWallet.signTransaction({
+              transaction: sponsoredTx
+            });
+            signatures.push(userSignatureResult.signature);
+
+            // Execute transaction
+            console.log('Executing transaction...');
+            const txResponse = await suiClient.executeTransactionBlock({
+              transactionBlock: finalTxBytes,
+              signature: signatures,
+              requestType: 'WaitForLocalExecution',
+            });
+
+            console.log(`Transaction for pick ${i + 1} executed:`, txResponse);
+            txResults.push({
+              index: i + 1,
+              pick,
+              digest: txResponse.digest,
+              success: true,
+              response: txResponse
+            });
+            txDigests.push(txResponse.digest);
+
+            // Wait for transaction to be fully confirmed before proceeding
+            console.log('Waiting for transaction confirmation...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+          } catch (error) {
+            console.error(`Failed to process pick ${i + 1}:`, error);
+            txResults.push({
+              index: i + 1,
+              pick,
+              success: false,
+              error: error.message
+            });
+          }
+        }
+
+        // Create combined withdrawal ID
+        const withdrawalId = txDigests.join('-');
+
+        // Log comprehensive results
+        console.log('=== WITHDRAWAL SUMMARY ===');
+        console.log(`Total picks processed: ${picks.length}`);
+        console.log(`Successful transactions: ${txResults.filter(r => r.success).length}`);
+        console.log(`Failed transactions: ${txResults.filter(r => !r.success).length}`);
+        console.log(`Withdrawal ID: ${withdrawalId}`);
+        console.log('Transaction details:');
+
+        txResults.forEach(result => {
+          if (result.success) {
+            console.log(`✅ TX${result.index}: ${result.pick.amount} ${token.symbol} from ${result.pick.address} - ${result.digest}`);
+          } else {
+            console.log(`❌ TX${result.index}: ${result.pick.amount} ${token.symbol} from ${result.pick.address} - ERROR: ${result.error}`);
+          }
+        });
+
+        console.log('=== END WITHDRAWAL SUMMARY ===');
+
+        // Store withdrawal ID and show success if any transactions succeeded
+        if (txDigests.length > 0) {
+          setLastTxSignature(withdrawalId);
+          setShowSuccessDialog(true);
+          setIsOpen(false);
+        } else {
+          throw new Error('All transactions failed');
+        }
       }
-
-      // now send the fully-signed tx
-      const signed = await walletInstance.signTransaction(tx);
-      const sig = await connection.sendRawTransaction(signed.serialize(), {
-        skipPreflight: true,
-      });
-      await connection.confirmTransaction(sig, 'confirmed');
-      await sleep(4000)
-      console.log('Withdrawal successful:', sig);
-      setLastTxSignature(sig);
-      setShowSuccessDialog(true);
-      setIsOpen(false); // Close the popover
     } catch (error) {
       console.log('Withdrawal error:', error)
       setError(`Transaction failed: ${error.message || 'Unknown error'}`)

@@ -27,7 +27,7 @@ export default function SuiPayButton({
 
       const chain = isTestnet ? CHAINS.SUI_TESTNET : CHAINS.SUI_MAINNET;
       console.log('chain', chain)
-      
+
       // Create SUI client
       const suiClient = new SuiClient({ url: chain.rpcUrl });
 
@@ -65,33 +65,81 @@ export default function SuiPayButton({
 
       const payTx = new Transaction();
 
-      let coinForStealth;
+      let coinObjects;
       if (selectedToken.isNative) {
-        // For native SUI, we can split from gas
-        [coinForStealth] = payTx.splitCoins(payTx.gas, [payTx.pure.u64(formattedAmount)]);
+        // For native SUI, we'll use gas coins
+        const gasCoins = await suiClient.getCoins({
+          owner: suiWallet.account.address,
+          coinType: '0x2::sui::SUI'
+        });
+        console.log('gasCoins', gasCoins)
+        coinObjects = gasCoins.data;
+
+        // For native SUI, we need to:
+        // 1. Set a specific gas coin
+        // 2. Use remaining coins for payment
+
+        // Find coins with sufficient balance for the payment
+        const paymentCoins = coinObjects.filter(coin =>
+          coin.balance !== '0' &&
+          // Exclude at least one coin for gas
+          BigInt(coin.balance) < BigInt(1e9) // coins less than 1 SUI can be used for gas
+        );
+
+        if (paymentCoins.length > 0) {
+          // Merge available payment coins
+          let primaryCoin = paymentCoins[0].coinObjectId;
+          if (paymentCoins.length > 1) {
+            for (let i = 1; i < paymentCoins.length; i++) {
+              console.log('merging', paymentCoins[i].coinObjectId)
+              payTx.mergeCoins(primaryCoin, [paymentCoins[i].coinObjectId]);
+            }
+          }
+
+          // Split the exact amount needed and transfer it
+          const [transferCoin] = payTx.splitCoins(primaryCoin, [payTx.pure.u64(formattedAmount)]);
+          payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
+        } else {
+          // If no separate payment coins available, use the gas coin
+          const [transferCoin] = payTx.splitCoins(payTx.gas, [payTx.pure.u64(formattedAmount)]);
+          payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
+        }
+
+        // Set a higher gas budget since we're doing multiple operations
+        payTx.setGasBudget(500000000); // 0.005 SUI
       } else {
-        // For other tokens, we need to find the coin object first
-        const coins = await suiClient.getCoins({
+        // For other tokens, get all coins of that type
+        const tokenCoins = await suiClient.getCoins({
           owner: suiWallet.account.address,
           coinType: selectedToken.address
         });
+        console.log('tokenCoins', tokenCoins)
+        coinObjects = tokenCoins.data;
 
-        // Find a coin with sufficient balance
-        const coin = coins.data.find(c => BigInt(c.balance) >= formattedAmount);
-        if (!coin) {
-          throw new Error('No coin with sufficient balance found');
+        // Filter out zero balance coins
+        const nonZeroCoins = coinObjects.filter(coin => coin.balance !== '0');
+
+        // Merge all coins into one
+        let primaryCoin = nonZeroCoins[0].coinObjectId;
+        if (nonZeroCoins.length > 1) {
+          for (let i = 1; i < nonZeroCoins.length; i++) {
+            console.log('merging', nonZeroCoins[i].coinObjectId)
+            payTx.mergeCoins(primaryCoin, [nonZeroCoins[i].coinObjectId]);
+          }
         }
 
-        // Split the found coin
-        [coinForStealth] = payTx.splitCoins(coin.coinObjectId, [payTx.pure.u64(formattedAmount)]);
+        // Split the exact amount needed and transfer it
+        const [transferCoin] = payTx.splitCoins(primaryCoin, [payTx.pure.u64(formattedAmount)]);
+        payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
       }
 
-      const target = `${chain.stealthProgramId}::pivy_stealth::pay`
+      // Call the announce function
+      const target = `${chain.stealthProgramId}::pivy_stealth::announce`
       payTx.moveCall({
         target,
         typeArguments: [selectedToken.isNative ? '0x2::sui::SUI' : selectedToken.address],
         arguments: [
-          coinForStealth,
+          payTx.pure.u64(formattedAmount),
           payTx.pure.address(stealthAddress.stealthSuiAddress),
           payTx.pure.vector('u8', Array.from(labelBytes)),
           payTx.pure.vector('u8', Array.from(ephPubBytes)),

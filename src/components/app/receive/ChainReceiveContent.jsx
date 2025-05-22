@@ -193,6 +193,7 @@ function SuiContent() {
       };
       setSelectedToken(nativeToken);
       setTokenSearchValue(nativeToken.name);
+      // TODO: Remove this
       setAmount(0.01);
     }
   }, [tokenBalances]);
