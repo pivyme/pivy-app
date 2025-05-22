@@ -10,8 +10,6 @@ export default function ReceiveLayout() {
       <ReceiveWalletProvider>
         <PolkadotBackground />
         <Outlet />
-
-        <CreateOwnLinkBadge />
       </ReceiveWalletProvider>
     </div>
   );

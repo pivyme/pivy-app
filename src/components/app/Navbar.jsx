@@ -91,35 +91,27 @@ const ChainSelector = () => {
   const { connected: solanaConnected, disconnect: disconnectSolana } = useWallet();
   const { connected: suiConnected, disconnect: disconnectSui } = useSuiWallet();
 
-  // Ensure there's always a default chain selected
-  useEffect(() => {
-    if (!walletChain) {
-      setWalletChain(WALLET_CHAINS.SOLANA);
-    }
-  }, []);
-
   const handleChainSwitch = async (newChain) => {
     if (!newChain) return; // Prevent undefined chain selection
     
     if (newChain !== walletChain) {
+      // Disconnect current wallet if connected
       if (solanaConnected && walletChain === WALLET_CHAINS.SOLANA) {
         await disconnectSolana();
       } else if (suiConnected && walletChain === WALLET_CHAINS.SUI) {
         await disconnectSui();
       }
-      setWalletChain(newChain);
+      // Force chain change from navbar
+      setWalletChain(newChain, true);
     }
   };
 
-  const currentChain = walletChain || WALLET_CHAINS.SOLANA;
-
   return (
     <Select
-      selectedKeys={[currentChain]}
+      selectedKeys={[walletChain]}
       onChange={(e) => handleChainSwitch(e.target.value)}
       className="w-[8rem]"
-      defaultSelectedKeys={[WALLET_CHAINS.SOLANA]}
-      startContent={<img src={CHAIN_DETAILS[currentChain].logo} alt={CHAIN_DETAILS[currentChain].name} className="w-4 h-4" />}
+      startContent={<img src={CHAIN_DETAILS[walletChain].logo} alt={CHAIN_DETAILS[walletChain].name} className="w-4 h-4" />}
     >
       {Object.entries(CHAIN_DETAILS).map(([chain, details]) => (
         <SelectItem

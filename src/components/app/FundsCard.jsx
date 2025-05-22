@@ -12,10 +12,9 @@ import { decryptEphemeralPrivKey, loadPivyProgram, deriveStealthKeypair } from '
 import { decryptEphemeralPrivKey as decryptEphemeralPrivKeySui, deriveStealthKeypair as deriveStealthKeypairSui } from '@/lib/pivy-stealth/pivy-stealth-sui';
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import { SuiClient } from '@mysten/sui/client';
+import { isValidSuiAddress} from '@mysten/sui/utils';
 import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
 
-import * as ed from '@noble/ed25519'
-import bs58 from 'bs58'
 import BN from 'bn.js';
 import { CHAINS, isTestnet } from '@/config'
 import { sleep } from '@/utils/process'
@@ -34,13 +33,9 @@ const validateAddress = (address) => {
   }
 };
 
-// Convert hex / base58 / Buffer → 32-byte Uint8Array
-const to32u8 = raw =>
-  raw instanceof Uint8Array ? raw
-    : /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, 'hex')
-      : typeof raw === 'string' ? bs58.decode(raw)
-        : raw.type === 'Buffer' ? Uint8Array.from(raw.data)
-          : (() => { throw new Error('unsupported key') })();
+const validateSuiAddress = (address) => {
+  return isValidSuiAddress(address)
+}
 
 function TokenCard({ token, index }) {
   const { accessToken, me, walletChain, walletChainId } = useAuth()
@@ -51,18 +46,14 @@ function TokenCard({ token, index }) {
 
   const suiWallet = useSuiWallet()
 
-  const [amount, setAmount] = useState("1")
-  const [address, setAddress] = useState("0x64919940bafb0bff8c93d0215884697c4f51890467ad8c115047c69a08eab7d4")
+  const [amount, setAmount] = useState("")
+  const [address, setAddress] = useState("")
   const [error, setError] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [lastTxSignature, setLastTxSignature] = useState(null)
   const [currentTxNumber, setCurrentTxNumber] = useState(0)
   const [totalTxCount, setTotalTxCount] = useState(0)
-
-  console.log({
-    token
-  })
 
   const handleSend = async () => {
     if (isSending) return
@@ -97,7 +88,10 @@ function TokenCard({ token, index }) {
 
     // Validate SUI address
     if (walletChain === 'SUI') {
-      console.log('SUI address', address)
+      if (!validateSuiAddress(address)) {
+        setError('Invalid SUI address')
+        return
+      }
     }
 
     setError(null)
@@ -658,7 +652,7 @@ function TokenCard({ token, index }) {
                         setAddress(val);
                         setError(null);
                       }}
-                      placeholder="Solana wallet address"
+                      placeholder={walletChain === "SOLANA" ? "Solana wallet address" : "SUI wallet address"}
                       classNames={{
                         input: "bg-white",
                         inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"
@@ -805,7 +799,7 @@ function TokenCard({ token, index }) {
                             lastTxSignature.split('|').map((hash, index) => (
                               <a
                                 key={hash}
-                                href={getExplorerTxLink(hash, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                                href={getExplorerTxLink(hash, walletChainId)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
@@ -817,7 +811,7 @@ function TokenCard({ token, index }) {
                           ) : (
                             // Single transaction
                             <a
-                              href={getExplorerTxLink(lastTxSignature, import.meta.env.VITE_IS_TESTNET === "true" ? "DEVNET" : "MAINNET")}
+                              href={getExplorerTxLink(lastTxSignature, walletChainId)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1.5 font-medium text-gray-900 hover:text-gray-600 transition-colors group"
@@ -839,7 +833,7 @@ function TokenCard({ token, index }) {
                       onClick={() => setShowSuccessDialog(false)}
 
                     >
-                      Back to Wallet
+                      Back
                     </BounceButton>
                   </div>
                 </motion.div>

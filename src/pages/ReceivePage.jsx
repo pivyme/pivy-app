@@ -16,6 +16,7 @@ import BounceButton from '@/components/elements/BounceButton'
 import { ArrowRightIcon } from 'lucide-react'
 import UsdcEvmPayment from '@/components/app/UsdcEvmPayment'
 import { ConnectButton as SuiConnectButton } from '@suiet/wallet-kit'
+import CreateOwnLinkBadge from '@/components/app/receive/CreateOwnLinkBadge'
 
 function ReceiveContent() {
   const {
@@ -24,7 +25,6 @@ function ReceiveContent() {
     isInitializing,
     error,
     wallet,
-    publicKey,
     isUsdcMode,
     setIsUsdcMode,
     setAmount,
@@ -55,7 +55,7 @@ function ReceiveContent() {
         <div className='w-full'>
           <PaymentSuccessView
             paymentDetails={paymentSuccess}
-            publicKey={publicKey}
+            publicKey={wallet.publicKey}
             stealthData={stealthData}
           />
         </div>
@@ -189,6 +189,7 @@ export default function ReceivePage({
   return (
     <ReceiveProvider username={username} tag={tag}>
       <ReceiveContent />
+      <CreateOwnLinkBadge />
     </ReceiveProvider>
   )
 }

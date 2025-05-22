@@ -319,23 +319,80 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
       <AnimateComponent>
         <div className="space-y-8">
           <div className="text-center space-y-4">
-            <motion.img
-              src="/tokens/usdc.png"
-              alt="USDC"
-              className="w-12 h-12 mx-auto"
-              initial={{ scale: 0 }}
-              animate={{
-                scale: [0, 1.2, 1, 1.1, 1],
-                rotate: [0, 10, -10, 10, 0],
-                y: [0, -3, 0, 3, 0]
-              }}
-              transition={{
-                duration: 3,
-                ease: 'easeInOut',
-                repeat: Infinity,
-                repeatType: 'loop'
-              }}
-            />
+            <div className="flex items-center justify-center space-x-8 relative">
+              {/* USDC Logo */}
+              <motion.img
+                src="/tokens/usdc.png"
+                alt="USDC"
+                className="w-12 h-12"
+                initial={{ scale: 0, x: 0 }}
+                animate={{
+                  scale: [0, 1.2, 1, 1.1, 1],
+                  x: [-20, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  ease: 'easeOut',
+                }}
+              />
+              
+              {/* Connecting Dots Animation */}
+              <div className="flex space-x-1">
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 0,
+                  }}
+                />
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 0.5,
+                  }}
+                />
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 1,
+                  }}
+                />
+              </div>
+
+              {/* Chain Logo */}
+              <motion.img
+                src={`/chains/${stealthData.sourceChain.toLowerCase()}.svg`}
+                alt={stealthData.sourceChain}
+                className="w-12 h-12"
+                initial={{ scale: 0, x: 0 }}
+                animate={{
+                  scale: [0, 1.2, 1, 1.1, 1],
+                  x: [20, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  ease: 'easeOut',
+                }}
+              />
+            </div>
+
             <h3 className="text-2xl font-extrabold text-gray-900">
               Bridging USDC to {stealthData.sourceChain.charAt(0) + stealthData.sourceChain.slice(1).toLowerCase()}
             </h3>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Button, Input, Popover, PopoverTrigger, PopoverContent, DropdownItem, DropdownMenu, Dropdown, DropdownTrigger } from '@heroui/react'
 import { LinkIcon, FileIcon, XIcon, SmileIcon, PaintbrushIcon, SparklesIcon, TrashIcon } from 'lucide-react'
-import { CHAINS, SPECIAL_THEMES } from '@/config'
+import { CHAINS, isTestnet, SPECIAL_THEMES } from '@/config'
 import axios from 'axios'
 import { useAuth } from '@/providers/AuthProvider'
 import { useNavigate } from 'react-router-dom'
@@ -30,7 +30,7 @@ export default function CreateLinkModal({
   onClose,
   editLink = null
 }) {
-  const { accessToken } = useAuth()
+  const { accessToken, walletChainId } = useAuth()
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [linkType, setLinkType] = useState(null)
@@ -46,10 +46,17 @@ export default function CreateLinkModal({
   const [showSpecialThemes, setShowSpecialThemes] = useState(false)
   const [selectedSpecialTheme, setSelectedSpecialTheme] = useState(null)
 
-  // Get tokens based on environment
-  const isTestnet = import.meta.env.VITE_IS_TESTNET === "true"
-  const networkTokens = isTestnet ? CHAINS.DEVNET.tokens : CHAINS.MAINNET.tokens
-  const [selectedToken, setSelectedToken] = useState(networkTokens[0])
+  console.log('walletChainId', walletChainId)
+  // Get tokens based on environment and add safety checks
+  const networkTokens = CHAINS[walletChainId]?.tokens || []
+  const [selectedToken, setSelectedToken] = useState(() => {
+    const defaultToken = networkTokens?.[0]
+    return defaultToken ? {
+      symbol: defaultToken.symbol || 'Unknown',
+      image: defaultToken.image || '/fallback-token-image.png',
+      ...defaultToken
+    } : null
+  })
 
   // Load link data when editing
   useEffect(() => {
@@ -95,7 +102,7 @@ export default function CreateLinkModal({
   }, [open])
 
   // Predefined emojis and colors
-  const emojis = ['🔗', '💫', '🌟', '✨', '💎', '🎯', '🎨', '🎭', '🎪', '🎢', '🎡', '🎠', '🎮', '🎲', '🎰', '��']
+  const emojis = ['🔗', '💫', '🌟', '✨', '💎', '🎯', '🎨', '🎭', '🎪', '🎢', '🎡', '🎠', '🎮', '🎲', '🎰', '❤️']
   const colors = COLORS.map(color => ({
     id: color.id,
     value: color.light
@@ -437,11 +444,14 @@ export default function CreateLinkModal({
                           >
                             <div className='flex items-center gap-2'>
                               <img
-                                src={selectedToken.image}
-                                alt={selectedToken.symbol}
+                                src={selectedToken?.image || '/fallback-token-image.png'}
+                                alt={selectedToken?.symbol || 'Token'}
                                 className="w-5 h-5 object-contain"
+                                onError={(e) => {
+                                  e.target.src = '/fallback-token-image.png'
+                                }}
                               />
-                              <span className="text-sm font-medium">{selectedToken.symbol}</span>
+                              <span className="text-sm font-medium">{selectedToken?.symbol || 'Select Token'}</span>
                             </div>
                           </Button>
                         </DropdownTrigger>
@@ -457,16 +467,19 @@ export default function CreateLinkModal({
                         >
                           {networkTokens.map((token) => (
                             <DropdownItem
-                              key={token.symbol}
+                              key={token.symbol || `token-${Math.random()}`}
                               startContent={
                                 <img
-                                  src={token.image}
-                                  alt={token.symbol}
+                                  src={token.image || '/fallback-token-image.png'}
+                                  alt={token.symbol || 'Token'}
                                   className="w-5 h-5 object-contain"
+                                  onError={(e) => {
+                                    e.target.src = '/fallback-token-image.png'
+                                  }}
                                 />
                               }
                             >
-                              {token.symbol}
+                              {token.symbol || 'Unknown Token'}
                             </DropdownItem>
                           ))}
                           {/* More to come */}

@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import { useAuth } from '@/providers/AuthProvider';
 import { WALLET_CHAINS } from '@/providers/AuthProvider';
-import { motion } from 'framer-motion';
 import { ArrowRightIcon } from 'lucide-react';
 import { ConnectButton as SuiConnectButton } from '@suiet/wallet-kit';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
@@ -14,27 +13,20 @@ const CHAIN_DETAILS = {
     name: 'Solana',
   },
   [WALLET_CHAINS.SUI]: {
-    name: 'Sui',
+    name: 'SUI',
   }
 };
 
 export default function ConnectWallet() {
-  const { signIn, walletChain, setWalletChain } = useAuth();
+  const { signIn, walletChain } = useAuth();
   const { connected: solanaConnected } = useWallet();
   const { connected: suiConnected } = useSuiWallet();
   const { setVisible } = useWalletModal();
 
-  // Ensure there's always a default chain selected
-  useEffect(() => {
-    if (!walletChain) {
-      setWalletChain(WALLET_CHAINS.SOLANA);
-    }
-  }, [walletChain, setWalletChain]);
+  const currentChain = walletChain;
+  const isConnected = currentChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
 
   const handleAction = () => {
-    const currentChain = walletChain || WALLET_CHAINS.SOLANA;
-    const isConnected = currentChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
-    
     if (isConnected) {
       signIn();
       return;
@@ -54,10 +46,7 @@ export default function ConnectWallet() {
   };
 
   const getButtonText = () => {
-    const currentChain = walletChain || WALLET_CHAINS.SOLANA;
-    const isConnected = currentChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
     const chainDetails = CHAIN_DETAILS[currentChain];
-
     if (isConnected) {
       return "Sign message to continue";
     }

@@ -7,7 +7,7 @@ import React, {
   useMemo,
 } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Header, Payload, SIWS } from "@web3auth/sign-in-with-solana";
 import { useLocalStorage } from "@uidotdev/usehooks";
@@ -78,18 +78,39 @@ export function AuthProvider({ children }) {
     "pivy-last-connected-address",
     null
   );
-  const [walletChain, setWalletChain] = useLocalStorage(
+  const [walletChain, setWalletChainStorage] = useLocalStorage(
     "pivy-wallet-chain",
-    null
+    WALLET_CHAINS.SOLANA
   );
   const [me, setMe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const [forceChainFromNavbar, setForceChainFromNavbar] = useState(null);
+
+  // Effect to handle initial chain selection from URL query
+  useEffect(() => {
+    const chainParam = searchParams.get('c')?.toUpperCase();
+    if (chainParam && Object.values(WALLET_CHAINS).includes(chainParam)) {
+      setWalletChainStorage(chainParam);
+    }
+  }, []); // Run only once on mount
+
+  // Strict chain management
+  const setWalletChain = useCallback((newChain, fromNavbar = false) => {
+    if (fromNavbar) {
+      setForceChainFromNavbar(newChain);
+      setWalletChainStorage(newChain);
+    }
+  }, []);
+
+  // Use the forced chain from navbar or fallback to storage
+  const effectiveWalletChain = forceChainFromNavbar || walletChain;
 
   // Compute walletChainId based on walletChain and network type
   const walletChainId = useMemo(() => {
-    if (!walletChain) return null;
+    if (!effectiveWalletChain) return null;
 
-    switch (walletChain) {
+    switch (effectiveWalletChain) {
       case WALLET_CHAINS.SOLANA:
         return isTestnet ? 'DEVNET' : 'MAINNET';
       case WALLET_CHAINS.SUI:
@@ -97,7 +118,7 @@ export function AuthProvider({ children }) {
       default:
         return null;
     }
-  }, [walletChain]);
+  }, [effectiveWalletChain]);
 
   // Wallet connections
   const {
@@ -118,13 +139,13 @@ export function AuthProvider({ children }) {
   const location = useLocation();
 
   // Determine if connected based on selected chain
-  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : (walletChain === WALLET_CHAINS.SUI ? suiConnected : false);
+  const isConnected = effectiveWalletChain === WALLET_CHAINS.SOLANA ? solanaConnected : (effectiveWalletChain === WALLET_CHAINS.SUI ? suiConnected : false);
 
   // Get the connected address based on the selected chain
   const connectedAddress = useMemo(() => {
     if (!isConnected) return null;
-    
-    switch (walletChain) {
+
+    switch (effectiveWalletChain) {
       case WALLET_CHAINS.SOLANA:
         return solanaPublicKey?.toBase58() ?? null;
       case WALLET_CHAINS.SUI:
@@ -132,10 +153,10 @@ export function AuthProvider({ children }) {
       default:
         return null;
     }
-  }, [walletChain, isConnected, solanaPublicKey, suiAccount]);
+  }, [effectiveWalletChain, isConnected, solanaPublicKey, suiAccount]);
 
   const getWalletState = useCallback(() => {
-    switch (walletChain) {
+    switch (effectiveWalletChain) {
       case WALLET_CHAINS.SOLANA:
         return {
           isConnected: solanaConnected,
@@ -152,7 +173,7 @@ export function AuthProvider({ children }) {
           address: null
         };
     }
-  }, [walletChain, solanaConnected, solanaPublicKey, suiConnected, suiAccount]);
+  }, [effectiveWalletChain, solanaConnected, solanaPublicKey, suiConnected, suiAccount]);
 
   const handleSignInSolana = async () => {
     const messageData = createSolanaMessage(solanaPublicKey.toBase58(), "Welcome to Pivy!");
@@ -195,7 +216,7 @@ export function AuthProvider({ children }) {
     try {
       let signInData;
 
-      switch (walletChain) {
+      switch (effectiveWalletChain) {
         case WALLET_CHAINS.SOLANA:
           signInData = await handleSignInSolana();
           break;
@@ -206,10 +227,10 @@ export function AuthProvider({ children }) {
           throw new Error("Invalid wallet chain");
       }
 
-      signInData.walletChain = walletChain;
+      signInData.walletChain = effectiveWalletChain;
 
       console.log('signInData', signInData);
-      console.log('walletChain', walletChain);
+      console.log('walletChain', effectiveWalletChain);
 
       const response = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/auth/login`,
@@ -223,10 +244,10 @@ export function AuthProvider({ children }) {
       console.error("Sign in error:", error);
       navigate("/login");
     }
-  }, [walletChain, getWalletState, signSolanaMessage, signSuiPersonalMessage, navigate, location]);
+  }, [effectiveWalletChain, getWalletState, signSolanaMessage, signSuiPersonalMessage, navigate, location]);
 
   const handleDisconnect = useCallback(() => {
-    switch (walletChain) {
+    switch (effectiveWalletChain) {
       case WALLET_CHAINS.SOLANA:
         disconnectSolana();
         break;
@@ -234,7 +255,7 @@ export function AuthProvider({ children }) {
         disconnectSui();
         break;
     }
-  }, [walletChain, disconnectSolana, disconnectSui]);
+  }, [effectiveWalletChain, disconnectSolana, disconnectSui]);
 
   const signOut = useCallback(() => {
     setAccessToken(null);
@@ -295,7 +316,7 @@ export function AuthProvider({ children }) {
         me,
         fetchMe,
         isLoading,
-        walletChain,
+        walletChain: effectiveWalletChain,
         setWalletChain,
         isConnected,
         connectedAddress,

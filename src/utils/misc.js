@@ -9,7 +9,8 @@ export const getSuiExplorerTxLink = (txHash, chain = 'TESTNET') => {
   return `https://suiscan.xyz/mainnet/tx/${txHash}`;
 }
 
-export const getExplorerTxLink = (txHash, chain = 'DEVNET') => {
+export const getExplorerTxLink = (txHash, chain) => {
+  console.log('chain', chain);
   // Handle SUI chain
   if (chain === 'SUI_TESTNET' || chain === 'SUI_MAINNET') {
     return getSuiExplorerTxLink(txHash, chain === 'SUI_TESTNET' ? 'TESTNET' : 'MAINNET');

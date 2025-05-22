@@ -2,8 +2,17 @@ import React from 'react'
 import { motion } from 'framer-motion';
 import { Link } from 'react-router';
 import { SparklesIcon } from 'lucide-react';
+import { useReceive } from './ReceiveProvider';
 
 export default function CreateOwnLinkBadge() {
+  const { sourceChain } = useReceive()
+
+  let redirectLink = "/";
+
+  if(sourceChain === "SUI"){
+    redirectLink = redirectLink + "?c=sui";
+  }
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -16,7 +25,7 @@ export default function CreateOwnLinkBadge() {
       }}
       className="fixed bottom-8 right-8 z-50"
     >
-      <Link to="/">
+      <Link to={redirectLink}>
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

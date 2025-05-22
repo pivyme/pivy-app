@@ -199,9 +199,9 @@ export function ReceiveProvider({ children, username, tag }) {
         )
         setTokenBalances(balances.data)
 
-        // Handle fixed amount payments
-        if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.amountData) {
-          const mintAddress = stealthData.linkData.amountData.mintAddress;
+        // Handle fixed amount payments with new structure
+        if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.mint) {
+          const mintAddress = stealthData.linkData.mint.mintAddress;
           let matchingToken;
 
           if (mintAddress === NATIVE_MINT.toString()) {
@@ -214,13 +214,22 @@ export function ReceiveProvider({ children, username, tag }) {
             const normalizedToken = normalizeTokenData(matchingToken);
             setSelectedToken(normalizedToken);
             setTokenSearchValue(normalizedToken.name);
-          } else if (stealthData.linkData.tokenInfo) {
-            const normalizedToken = normalizeFixedTokenData(stealthData.linkData.tokenInfo);
+          } else {
+            // If token not in balance, use mint info
+            const mintInfo = stealthData.linkData.mint;
+            const normalizedToken = normalizeFixedTokenData({
+              address: mintInfo.mintAddress,
+              decimals: mintInfo.decimals,
+              imageUrl: mintInfo.imageUrl,
+              name: mintInfo.name,
+              symbol: mintInfo.symbol
+            });
             setSelectedToken(normalizedToken);
             setTokenSearchValue(normalizedToken.name);
           }
 
-          setAmount((stealthData.linkData.amountData.amount / 1000000).toString());
+          // Use chainAmount which is already in the correct format
+          setAmount((stealthData.linkData.amount || 0).toString());
         } else if (balances.data?.nativeBalance) {
           setSelectedToken(normalizeTokenData(balances.data.nativeBalance))
           setTokenSearchValue(balances.data.nativeBalance.name)
@@ -240,23 +249,38 @@ export function ReceiveProvider({ children, username, tag }) {
 
         setTokenBalances(balances.data)
 
-        // Handle fixed amount payments
-        if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.amountData) {
-          const mintAddress = stealthData.linkData.amountData.mintAddress;
+        // Handle fixed amount payments with new structure
+        if (stealthData?.linkData?.amountType === 'FIXED' && stealthData?.linkData?.mint) {
+          const mintAddress = stealthData.linkData.mint.mintAddress;
           let matchingToken;
 
           if (mintAddress === '0x2::sui::SUI') {
             matchingToken = balances.data.nativeBalance;
           } else {
-            matchingToken = balances.data.tokens.find(t => t.address === mintAddress);
+            matchingToken = balances.data.tokens?.find(t => t.address === mintAddress);
           }
 
           if (matchingToken) {
-            setSelectedToken(normalizeTokenData(matchingToken));
+            const normalizedToken = normalizeTokenData(matchingToken);
+            setSelectedToken(normalizedToken);
             setTokenSearchValue(matchingToken.name);
+          } else {
+            // If token not in balance, use mint info
+            const mintInfo = stealthData.linkData.mint;
+            const normalizedToken = normalizeFixedTokenData({
+              address: mintInfo.mintAddress,
+              decimals: mintInfo.decimals,
+              imageUrl: mintInfo.imageUrl,
+              name: mintInfo.name,
+              symbol: mintInfo.symbol,
+              isNative: mintAddress === '0x2::sui::SUI'
+            });
+            setSelectedToken(normalizedToken);
+            setTokenSearchValue(normalizedToken.name);
           }
 
-          setAmount((stealthData.linkData.amountData.amount / 1000000).toString());
+          // Use amount directly
+          setAmount((stealthData.linkData.amount || 0).toString());
         } else if (balances.data?.nativeBalance) {
           setSelectedToken(normalizeTokenData(balances.data.nativeBalance))
           setTokenSearchValue(balances.data.nativeBalance.name)
