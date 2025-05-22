@@ -69,8 +69,16 @@ export default function SuiPayButton({
       )
       console.log('encryptedMemo', encryptedMemo)
 
+      let label = ''
+      // If tag exists, just use tag
+      if (stealthData?.linkData?.tag) {
+        label = stealthData.linkData.tag;
+      } else {
+        label = 'personal';
+      }
+
       // Build stealth payment transaction
-      const labelBytes = pad32(toBytes('testing'));
+      const labelBytes = pad32(toBytes(label));
       const ephPubBytes = toBytes(ephPub58);
       const payloadBytes = toBytes(encryptedMemo);
 
@@ -115,7 +123,7 @@ export default function SuiPayButton({
         } else {
           // If no single coin has enough balance, we need to merge coins
           console.log('No single coin with sufficient balance, merging coins...');
-          
+
           // Sort coins by balance (largest first)
           const sortedCoins = [...freshTokenCoins].sort((a, b) => {
             const balanceA = BigInt(a.balance);
@@ -128,7 +136,7 @@ export default function SuiPayButton({
           // Merge coins until we have enough balance
           let runningBalance = BigInt(0);
           const coinsToMerge = [];
-          
+
           for (const coin of sortedCoins) {
             coinsToMerge.push(coin.coinObjectId);
             runningBalance += BigInt(coin.balance);
@@ -182,7 +190,7 @@ export default function SuiPayButton({
           return 0;
         });
         const gasCoin = sortedGasCoins[0];
-        
+
         // Set gas payment with the selected coin
         payTx.setGasPayment([{
           objectId: gasCoin.coinObjectId,
