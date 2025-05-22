@@ -29,7 +29,7 @@ export default function SuiPayButton({
       console.log('chain', chain)
 
       // Create SUI client
-      const suiClient = new SuiClient({ url: chain.rpcUrl });
+      const suiClient = new SuiClient({ url: chain.publicRpcUrl });
 
       console.log('paying with', selectedToken)
       console.log('stealthData', stealthData)
@@ -65,71 +65,35 @@ export default function SuiPayButton({
 
       const payTx = new Transaction();
 
-      let coinObjects;
       if (selectedToken.isNative) {
-        // For native SUI, we'll use gas coins
-        const gasCoins = await suiClient.getCoins({
-          owner: suiWallet.account.address,
-          coinType: '0x2::sui::SUI'
-        });
-        console.log('gasCoins', gasCoins)
-        coinObjects = gasCoins.data;
-
-        // For native SUI, we need to:
-        // 1. Set a specific gas coin
-        // 2. Use remaining coins for payment
-
-        // Find coins with sufficient balance for the payment
-        const paymentCoins = coinObjects.filter(coin =>
-          coin.balance !== '0' &&
-          // Exclude at least one coin for gas
-          BigInt(coin.balance) < BigInt(1e9) // coins less than 1 SUI can be used for gas
-        );
-
-        if (paymentCoins.length > 0) {
-          // Merge available payment coins
-          let primaryCoin = paymentCoins[0].coinObjectId;
-          if (paymentCoins.length > 1) {
-            for (let i = 1; i < paymentCoins.length; i++) {
-              console.log('merging', paymentCoins[i].coinObjectId)
-              payTx.mergeCoins(primaryCoin, [paymentCoins[i].coinObjectId]);
-            }
-          }
-
-          // Split the exact amount needed and transfer it
-          const [transferCoin] = payTx.splitCoins(primaryCoin, [payTx.pure.u64(formattedAmount)]);
-          payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
-        } else {
-          // If no separate payment coins available, use the gas coin
-          const [transferCoin] = payTx.splitCoins(payTx.gas, [payTx.pure.u64(formattedAmount)]);
-          payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
-        }
+        // For native SUI, we can split directly from gas
+        const [transferCoin] = payTx.splitCoins(payTx.gas, [payTx.pure.u64(formattedAmount)]);
+        payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
 
         // Set a higher gas budget since we're doing multiple operations
-        payTx.setGasBudget(500000000); // 0.005 SUI
+        payTx.setGasBudget(500000000); // 0.5 SUI
       } else {
-        // For other tokens, get all coins of that type
-        const tokenCoins = await suiClient.getCoins({
+        // For other tokens, fetch fresh coins
+        const { data: freshTokenCoins } = await suiClient.getCoins({
           owner: suiWallet.account.address,
           coinType: selectedToken.address
         });
-        console.log('tokenCoins', tokenCoins)
-        coinObjects = tokenCoins.data;
+        console.log('tokenCoins', freshTokenCoins)
 
-        // Filter out zero balance coins
-        const nonZeroCoins = coinObjects.filter(coin => coin.balance !== '0');
+        // Find a coin with sufficient balance
+        const coinWithSufficientBalance = freshTokenCoins.find(
+          coin => BigInt(coin.balance) >= formattedAmount
+        );
 
-        // Merge all coins into one
-        let primaryCoin = nonZeroCoins[0].coinObjectId;
-        if (nonZeroCoins.length > 1) {
-          for (let i = 1; i < nonZeroCoins.length; i++) {
-            console.log('merging', nonZeroCoins[i].coinObjectId)
-            payTx.mergeCoins(primaryCoin, [nonZeroCoins[i].coinObjectId]);
-          }
+        if (!coinWithSufficientBalance) {
+          throw new Error('No single coin with sufficient balance found');
         }
 
-        // Split the exact amount needed and transfer it
-        const [transferCoin] = payTx.splitCoins(primaryCoin, [payTx.pure.u64(formattedAmount)]);
+        // Split the exact amount needed from the found coin
+        const [transferCoin] = payTx.splitCoins(
+          coinWithSufficientBalance.coinObjectId,
+          [payTx.pure.u64(formattedAmount)]
+        );
         payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));
       }
 
@@ -148,10 +112,17 @@ export default function SuiPayButton({
       });
 
       const payRes = await suiWallet.signAndExecuteTransaction({
-        transaction: payTx
+        transaction: payTx,
       })
 
       const sig = payRes.digest;
+      console.log('sig', sig)
+
+      const confirmed = await suiClient.waitForTransaction({
+        digest: sig,
+      })
+
+      console.log('confirmed', confirmed)
       onSuccess?.(sig);
     } catch (e) {
       console.log('Payment failed:', e);

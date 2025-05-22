@@ -98,6 +98,7 @@ export const CHAINS = {
   SUI_MAINNET: {
     id: "SUI_MAINNET",
     rpcUrl: import.meta.env.VITE_SUI_RPC_MAINNET,
+    publicRpcUrl: 'https://fullnode.mainnet.sui.io:443',
     stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_MAINNET,
     tokens: [
       {
@@ -121,6 +122,7 @@ export const CHAINS = {
   SUI_TESTNET: {
     id: "SUI_TESTNET",
     rpcUrl: import.meta.env.VITE_SUI_RPC_TESTNET,
+    publicRpcUrl: 'https://fullnode.testnet.sui.io:443',
     stealthProgramId: import.meta.env.VITE_PIVY_STEALTH_PROGRAM_ID_SUI_TESTNET,
     tokens: [
       {

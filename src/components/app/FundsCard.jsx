@@ -260,16 +260,6 @@ function TokenCard({ token, index }) {
 
         console.log('Picked wallets:', picks)
 
-        // Get gas coins from user wallet for sponsoring
-        const { data: gasCoins } = await suiClient.getCoins({
-          owner: suiWallet.account.address,
-          coinType: '0x2::sui::SUI'
-        });
-
-        if (gasCoins.length === 0) {
-          throw new Error('No gas coins found in wallet');
-        }
-
         // Process each pick one at a time - build, sign, and execute before moving to next
         const txResults = [];
         const txDigests = [];
@@ -279,6 +269,23 @@ function TokenCard({ token, index }) {
           console.log(`Processing pick ${i + 1}/${picks.length} for ${pick.amount} ${token.symbol}`);
 
           try {
+            // Get fresh gas coins for each transaction
+            const { data: gasCoins } = await suiClient.getCoins({
+              owner: suiWallet.account.address,
+              coinType: '0x2::sui::SUI'
+            });
+
+            if (gasCoins.length === 0) {
+              throw new Error('No gas coins found in wallet');
+            }
+
+            // Sort gas coins by balance and use the largest one
+            const sortedGasCoins = [...gasCoins].sort((a, b) => 
+              BigInt(b.balance) - BigInt(a.balance)
+            );
+            const gasCoin = sortedGasCoins[0];
+            console.log(`Using gas coin ${gasCoin.coinObjectId} for transaction ${i + 1}`);
+
             // Derive stealth keypair
             console.log('Deriving stealth keypair...');
             const decryptedEphPriv = await decryptEphemeralPrivKeySui(
@@ -359,21 +366,20 @@ function TokenCard({ token, index }) {
               }
             }
 
-            // Call the withdraw function
-            console.log('Adding withdraw call...');
-            try {
-              withdrawTx.moveCall({
-                target: `${stealthProgramId}::pivy_stealth::withdraw`,
-                typeArguments: [pick.mint],
-                arguments: [
-                  finalCoin,
-                  withdrawTx.pure(address, 'address'),
-                ],
-              });
-            } catch (moveCallError) {
-              console.warn('Move call failed, falling back to direct transfer:', moveCallError);
-              withdrawTx.transferObjects([finalCoin], withdrawTx.pure.address(address));
-            }
+            // First transfer the coins directly
+            console.log('Adding direct transfer...');
+            withdrawTx.transferObjects([finalCoin], withdrawTx.pure.address(address));
+
+            // Then call announce_withdraw
+            console.log('Adding announce_withdraw call...');
+            withdrawTx.moveCall({
+              target: `${stealthProgramId}::pivy_stealth::announce_withdraw`,
+              typeArguments: [pick.mint],
+              arguments: [
+                withdrawTx.pure.u64(BigInt(Math.floor(pick.amount * (10 ** token.decimals)))),
+                withdrawTx.pure.address(address),
+              ],
+            });
 
             // Build transaction kind bytes
             console.log('Building transaction kind bytes...');
@@ -393,9 +399,9 @@ function TokenCard({ token, index }) {
             sponsoredTx.setSender(pick.address);
             sponsoredTx.setGasOwner(suiWallet.account.address);
             sponsoredTx.setGasPayment([{
-              objectId: gasCoins[Math.min(i, gasCoins.length - 1)].coinObjectId,
-              version: gasCoins[Math.min(i, gasCoins.length - 1)].version,
-              digest: gasCoins[Math.min(i, gasCoins.length - 1)].digest
+              objectId: gasCoin.coinObjectId,
+              version: gasCoin.version,
+              digest: gasCoin.digest
             }]);
 
             // Build final transaction bytes
@@ -438,6 +444,13 @@ function TokenCard({ token, index }) {
             console.log('Waiting for transaction confirmation...');
             await new Promise(resolve => setTimeout(resolve, 2000));
 
+            // Add a small delay between transactions
+            if (i < picks.length - 1) {
+              console.log('Waiting before next transaction...');
+              // Sleep for 8 seconds
+              await sleep(2000)
+            }
+
           } catch (error) {
             console.error(`Failed to process pick ${i + 1}:`, error);
             txResults.push({
@@ -450,7 +463,7 @@ function TokenCard({ token, index }) {
         }
 
         // Create combined withdrawal ID
-        const withdrawalId = txDigests.join('-');
+        const withdrawalId = txDigests.join('|');
 
         // Log comprehensive results
         console.log('=== WITHDRAWAL SUMMARY ===');
