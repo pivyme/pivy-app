@@ -4,17 +4,26 @@ import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon, ChevronDownIcon } from 'l
 import { formatDistanceToNow } from 'date-fns';
 import { COLORS } from '@/config';
 import { getExplorerAccountLink, getExplorerTxLink, shortenAddress } from '@/utils/misc';
+import { formatUiNumber } from '@/utils/formatting';
+import { formatUnits } from 'viem';
 
 export default function ActivityItem({ activity, isExpanded, onToggle }) {
-  // Helper function to format amount based on decimals
-  const formatAmount = (amount, decimals) => {
-    const value = Number(amount) / Math.pow(10, decimals);
-    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
-  };
-
-  // Get the token details - handle both structures
-  const token = activity.type === 'WITHDRAWAL' ? activity.tokens[activity.token.symbol] : activity.token;
-  const amount = formatAmount(activity.amount, token.decimals);
+  // Get the token details
+  const token = activity.token;
+  
+  // Convert raw amount to decimal value using formatUnits
+  const decimals = token.decimals || 0;
+  const decimalValue = formatUnits(BigInt(activity.amount || 0), decimals);
+  
+  // Format the decimal value for display
+  const formattedAmount = formatUiNumber(
+    decimalValue,
+    '',
+    { 
+      maxDecimals: decimals,
+      defaultDecimals: Math.min(2, decimals)
+    }
+  );
 
   // Get the relevant address based on type
   const relevantAddress = activity.type === 'WITHDRAWAL' 
@@ -72,7 +81,7 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
             )}
             <div>
               <p className="font-semibold text-lg text-gray-900">
-                {amount} {token.symbol}
+                {formattedAmount} {token.symbol}
               </p>
               <p className="text-sm text-gray-500">
                 {formatDistanceToNow(activity.timestamp * 1000, { addSuffix: true })}
@@ -150,21 +159,10 @@ export default function ActivityItem({ activity, isExpanded, onToggle }) {
                   </a>
                 </div>
 
-                {/* Link Details - Only for Payment type */}
-                {/* {activity.type === 'PAYMENT' && activity.link && (
-                  <div className="flex justify-between items-center py-1.5">
-                    <span className="text-gray-500">Payment Link</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{activity.link.emoji}</span>
-                      <span className="text-gray-900">{activity.link.label}</span>
-                    </div>
-                  </div>
-                )} */}
-
-                {/* <div className="flex justify-between items-center py-1.5">
+                <div className="flex justify-between items-center py-1.5">
                   <span className="text-gray-500">Network</span>
                   <span className="font-medium text-gray-700">{activity.chain}</span>
-                </div> */}
+                </div>
               </div>
             </div>
           </motion.div>

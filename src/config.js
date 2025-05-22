@@ -292,6 +292,14 @@ export const CCTP_CONTRACTS = {
     DEVNET: {
       domain: 5,
       address: "CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd"
+    },
+    SUI_MAINNET: {
+      domain: 8,
+      address: "0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b"
+    },
+    SUI_TESTNET: {
+      domain: 8,
+      address: "0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5"
     }
   },
 
@@ -303,6 +311,34 @@ export const CCTP_CONTRACTS = {
     DEVNET: {
       domain: 5,
       address: "CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3"
+    },
+    SUI_MAINNET: {
+      domain: 8,
+      address: "0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e"
+    },
+    SUI_TESTNET: {
+      domain: 8,
+      address: "0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb"
     }
+  },
+
+  MESSAGE_TRANSMITTER_STATE: {
+    SUI_MAINNET: "0xf68268c3d9b1df3215f2439400c1c4ea08ac4ef4bb7d6f3ca6a2a239e17510af",
+    SUI_TESTNET: "0x98234bd0fa9ac12cc0a20a144a22e36d6a32f7e0a97baaeaf9c76cdc6d122d2e"
+  },
+
+  TOKEN_MESSENGER_MINTER_STATE: {
+    SUI_MAINNET: "0x45993eecc0382f37419864992c12faee2238f5cfe22b98ad3bf455baf65c8a2f",
+    SUI_TESTNET: "0x5252abd1137094ed1db3e0d75bc36abcd287aee4bc310f8e047727ef5682e7c2"
+  },
+
+  USDC_TREASURY: {
+    SUI_MAINNET: "0x57d6725e7a8b49a7b2a612f6bd66ab5f39fc95332ca48be421c3229d514a6de7",
+    SUI_TESTNET: "0x7170137d4a6431bf83351ac025baf462909bffe2877d87716374fb42b9629ebe"
+  },
+
+  USDC_PACKAGE: {
+    SUI_MAINNET: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+    SUI_TESTNET: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC"
   }
 }

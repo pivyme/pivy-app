@@ -8,12 +8,27 @@ import {
 } from "@solana/wallet-adapter-react-ui";
 import React, { useEffect } from "react";
 import { useAuth } from "../../providers/AuthProvider";
-import { Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
-import { LogOutIcon } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent, Select, SelectItem } from "@heroui/react";
+import { LogOutIcon, ChevronDownIcon } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import GradientProfilePicture from "../shared/GradientProfilePicture";
 import { shortenAddress } from "@/utils/misc";
 import AnimateComponent from "@/components/elements/AnimateComponent";
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
+import { WALLET_CHAINS } from '@/providers/AuthProvider';
+
+const CHAIN_DETAILS = {
+  [WALLET_CHAINS.SOLANA]: {
+    name: 'Solana',
+    logo: '/chains/solana.svg',
+    color: '#9945FF',
+  },
+  [WALLET_CHAINS.SUI]: {
+    name: 'Sui',
+    logo: '/chains/sui.svg',
+    color: '#6FBCF0',
+  }
+};
 
 export default function Navbar() {
   const { isConnected } = useAuth();
@@ -50,6 +65,7 @@ export default function Navbar() {
 
             <AnimateComponent delay={200}>
               <div className="flex flex-row items-center gap-2 h-full">
+                <ChainSelector />
                 <WalletButton />
               </div>
             </AnimateComponent>
@@ -60,6 +76,7 @@ export default function Navbar() {
               <img src="/pivy-horizontal-logo.svg" alt="Pivy Logo" className="h-9" />
             </Link>
             <div className="flex flex-row items-center gap-2 h-full">
+              <ChainSelector />
               <div className="h-[2.75rem]" />
             </div>
           </>
@@ -69,15 +86,60 @@ export default function Navbar() {
   );
 }
 
+const ChainSelector = () => {
+  const { walletChain, setWalletChain } = useAuth();
+  const { connected: solanaConnected, disconnect: disconnectSolana } = useWallet();
+  const { connected: suiConnected, disconnect: disconnectSui } = useSuiWallet();
+
+  // Ensure there's always a default chain selected
+  useEffect(() => {
+    if (!walletChain) {
+      setWalletChain(WALLET_CHAINS.SOLANA);
+    }
+  }, []);
+
+  const handleChainSwitch = async (newChain) => {
+    if (!newChain) return; // Prevent undefined chain selection
+    
+    if (newChain !== walletChain) {
+      if (solanaConnected && walletChain === WALLET_CHAINS.SOLANA) {
+        await disconnectSolana();
+      } else if (suiConnected && walletChain === WALLET_CHAINS.SUI) {
+        await disconnectSui();
+      }
+      setWalletChain(newChain);
+    }
+  };
+
+  const currentChain = walletChain || WALLET_CHAINS.SOLANA;
+
+  return (
+    <Select
+      selectedKeys={[currentChain]}
+      onChange={(e) => handleChainSwitch(e.target.value)}
+      className="w-[8rem]"
+      defaultSelectedKeys={[WALLET_CHAINS.SOLANA]}
+      startContent={<img src={CHAIN_DETAILS[currentChain].logo} alt={CHAIN_DETAILS[currentChain].name} className="w-4 h-4" />}
+    >
+      {Object.entries(CHAIN_DETAILS).map(([chain, details]) => (
+        <SelectItem
+          key={chain}
+          value={chain}
+          textValue={details.name}
+        >
+          <div className="flex items-center gap-2">
+            <img src={details.logo} alt={details.name} className="w-4 h-4" />
+            <span>{details.name}</span>
+          </div>
+        </SelectItem>
+      ))}
+    </Select>
+  );
+};
+
 const WalletButton = () => {
   const { isConnected, connectedAddress, signOut, isSignedIn } = useAuth();
   const { setVisible } = useWalletModal();
-  const { walletChain } = useAuth()
-  console.log('walletChain', walletChain)
-
-  const getChainLogo = () => {
-    return walletChain === 'SOLANA' ? '/chains/solana.svg' : '/chains/sui.svg';
-  };
 
   return (
     <Popover placement="bottom">
@@ -92,16 +154,9 @@ const WalletButton = () => {
               seed={connectedAddress ?? ""}
               className="size-8 border-2 border-black"
             />
-            <div className="flex items-center gap-2">
-              <p className="font-medium tracking-tight">
-                {shortenAddress(connectedAddress ?? "")}
-              </p>
-              <img 
-                src={getChainLogo()} 
-                alt={`${walletChain} chain`} 
-                className="w-5 h-5"
-              />
-            </div>
+            <p className="font-medium tracking-tight">
+              {shortenAddress(connectedAddress ?? "")}
+            </p>
           </div>
         </Button>
       </PopoverTrigger>

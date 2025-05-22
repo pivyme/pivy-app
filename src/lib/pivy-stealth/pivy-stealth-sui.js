@@ -225,38 +225,35 @@ export async function deriveStealthPub(metaSpendPub, metaViewPub, ephPriv32, met
   };
 }
 
-/**
- * Custom signer class for handling stealth transactions
- */
-class StealthSigner {
-  constructor(sBytes, stealthPubBytes) {
-    this.scalarBytes = sBytes; // Uint8Array(32)
+// CCTP Utils
 
-    // Use the provided stealth pub bytes directly
-    this.publicKeyBytes = stealthPubBytes || this.suiKeypair?.getPublicKey().toRawBytes();
+export const prepareSuiUsdcEvmPayment = async ({
+  metaSpendPub,
+  metaViewPub,
+  s
+}) => {
+  const ephemeralKeypair = Ed25519Keypair.generate();
+  const ephPriv = getPrivBytes(ephemeralKeypair);
+  const ephPub58 = bs58.encode(getPubBytes(ephemeralKeypair))
 
-    // Create Sui keypair directly from the 32-byte private key
-    this.suiKeypair = Ed25519Keypair.fromSecretKey(this.scalarBytes);
-  }
+  // console.log('ephPub58', ephPub58)
+  // console.log('ephPriv', ephPriv)
 
-  publicKeyBase58() {
-    return bs58.encode(this.publicKeyBytes);
-  }
+  const encryptedPayload = await encryptEphemeralPrivKey(
+    ephPriv,
+    metaViewPub
+  )
 
-  toSuiAddress() {
-    // Create an Ed25519PublicKey from publicKeyBytes to compute the address
-    return this.suiKeypair.toSuiAddress()
-  }
-
-  getSecretKey() {
-    return this.suiKeypair.getSecretKey();
-  }
-
-  async signMessage(message) {
-    return this.suiKeypair.signPersonalMessage(message);
-  }
-
-  async signTransaction(transaction) {
-    return this.suiKeypair.signTransaction(transaction);
+  const stealthAddress = await deriveStealthPub(
+    metaSpendPub,
+    metaViewPub,
+    ephPriv,
+    s
+  )
+  
+  return {
+    stealthOwner: stealthAddress.stealthSuiAddress,
+    encryptedPayload,
+    ephPub: ephPub58
   }
 }
