@@ -97,18 +97,59 @@ export default function SuiPayButton({
         });
         console.log('tokenCoins', freshTokenCoins)
 
-        // Find a coin with sufficient balance
+        // Calculate total available balance
+        const totalBalance = freshTokenCoins.reduce((sum, coin) => sum + BigInt(coin.balance), BigInt(0));
+        if (totalBalance < exactAmount) {
+          throw new Error('Insufficient total balance');
+        }
+
+        let coinToUse;
+        // Find a single coin with sufficient balance
         const coinWithSufficientBalance = freshTokenCoins.find(
           coin => BigInt(coin.balance) >= exactAmount
         );
 
-        if (!coinWithSufficientBalance) {
-          throw new Error('No single coin with sufficient balance found');
+        if (coinWithSufficientBalance) {
+          // If we found a single coin with enough balance, use it
+          coinToUse = coinWithSufficientBalance.coinObjectId;
+        } else {
+          // If no single coin has enough balance, we need to merge coins
+          console.log('No single coin with sufficient balance, merging coins...');
+          
+          // Sort coins by balance (largest first)
+          const sortedCoins = [...freshTokenCoins].sort((a, b) => {
+            const balanceA = BigInt(a.balance);
+            const balanceB = BigInt(b.balance);
+            if (balanceB > balanceA) return 1;
+            if (balanceB < balanceA) return -1;
+            return 0;
+          });
+
+          // Merge coins until we have enough balance
+          let runningBalance = BigInt(0);
+          const coinsToMerge = [];
+          
+          for (const coin of sortedCoins) {
+            coinsToMerge.push(coin.coinObjectId);
+            runningBalance += BigInt(coin.balance);
+            if (runningBalance >= exactAmount) {
+              break;
+            }
+          }
+
+          // Merge the selected coins into the first coin
+          if (coinsToMerge.length > 1) {
+            const [primaryCoin, ...otherCoins] = coinsToMerge;
+            payTx.mergeCoins(primaryCoin, otherCoins);
+            coinToUse = primaryCoin;
+          } else {
+            coinToUse = coinsToMerge[0];
+          }
         }
 
-        // Split the exact amount needed from the found coin
+        // Split the exact amount needed from the coin
         const [transferCoin] = payTx.splitCoins(
-          coinWithSufficientBalance.coinObjectId,
+          coinToUse,
           [payTx.pure.u64(exactAmount)]
         );
         payTx.transferObjects([transferCoin], payTx.pure.address(stealthAddress.stealthSuiAddress));

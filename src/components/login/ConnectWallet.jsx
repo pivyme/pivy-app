@@ -60,7 +60,7 @@ export default function ConnectWallet() {
       </div>
 
       <BounceButton
-        className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
+        className="tracking-tight font-bold px-8 py-6 text-lg bg-primary hover:bg-primary-500 transition-colors shadow-sm w-full"
         onPress={handleAction}
       >
         {getButtonText()}
