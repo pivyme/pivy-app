@@ -291,7 +291,7 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
         setCurrentStep(4);
 
         onSuccess?.({
-          signature: res.data.receiveSignature,
+          signature: res.data.transactionDigest,
           amount: amount,
           token: {
             symbol: 'USDC',

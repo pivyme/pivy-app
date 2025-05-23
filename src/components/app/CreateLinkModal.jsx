@@ -30,7 +30,7 @@ export default function CreateLinkModal({
   onClose,
   editLink = null
 }) {
-  const { accessToken, walletChainId } = useAuth()
+  const { accessToken, walletChainId, me } = useAuth()
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [linkType, setLinkType] = useState(null)
@@ -356,7 +356,7 @@ export default function CreateLinkModal({
             />
           </div>
           <div className='text-sm text-gray-500'>
-            Your payment URL: {linkName && <span className='font-medium text-primary-600'>{`https://pivy.me/receive/${slugify(linkName)}`}</span>}
+            Your payment URL: {linkName && <span className='font-medium text-primary-600'>{`https://pivy.me/${me.username}/${slugify(linkName)}`}</span>}
           </div>
         </div>
 
