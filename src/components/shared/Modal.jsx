@@ -56,7 +56,7 @@ export default function Modal({
             onClick={onClose}
           />
 
-          <div className='w-full h-full flex items-center justify-center p-4'>
+          <div className='w-full h-full flex items-start justify-center p-4' style={{ paddingTop: 'max(4rem, min(10rem, 20vh))' }}>
             <motion.div 
               initial={{ y: 40, opacity: 0 }}
               animate={{ 
@@ -78,7 +78,9 @@ export default function Modal({
               }}
               style={{
                 maxWidth,
-                padding
+                padding,
+                maxHeight: 'calc(100vh - max(8rem, min(20rem, 40vh)))',
+                overflowY: 'auto'
               }}
               className='w-full relative nice-card'
             >

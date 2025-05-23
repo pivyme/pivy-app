@@ -45,6 +45,7 @@ export default function CreateLinkModal({
   const backdropRef = useRef(null)
   const [showSpecialThemes, setShowSpecialThemes] = useState(false)
   const [selectedSpecialTheme, setSelectedSpecialTheme] = useState(null)
+  const [linkNameError, setLinkNameError] = useState(false)
 
   console.log('walletChainId', walletChainId)
   // Get tokens based on environment and add safety checks
@@ -115,6 +116,12 @@ export default function CreateLinkModal({
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!linkType || !amountType) return
+
+    // Validate link name
+    if (!linkName.trim()) {
+      setLinkNameError(true)
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -349,15 +356,29 @@ export default function CreateLinkModal({
             <Input
               placeholder="e.g., design-project"
               value={linkName}
-              onChange={(e) => setLinkName(e.target.value)}
+              onChange={(e) => {
+                setLinkName(e.target.value)
+                setLinkNameError(false)
+              }}
               size='lg'
               className='text-base flex-1'
               variant='bordered'
+              isInvalid={linkNameError}
+              errorMessage={linkNameError && "Please enter a link name"}
             />
           </div>
-          <div className='text-sm text-gray-500'>
-            Your payment URL: {linkName && <span className='font-medium text-primary-600'>{`https://pivy.me/${me.username}/${slugify(linkName)}`}</span>}
-          </div>
+          <AnimatePresence>
+            {linkName && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="text-sm text-gray-500"
+              >
+                Your payment URL: <span className="font-medium text-primary-600">{`https://pivy.me/${me.username}/${slugify(linkName)}`}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Link Type */}
