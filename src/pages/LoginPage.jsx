@@ -93,8 +93,13 @@ export default function LoginPage() {
     return <Navigate to="/" replace />
   }
 
+  let topPadding = "pt-[12rem]";
+  if(walletChain === "SUI") {
+    topPadding = "pt-[0rem]";
+  }
+
   return (
-    <div className='w-full min-h-screen flex items-center justify-center'>
+    <div className={`w-full min-h-screen flex items-center justify-center ${topPadding}`}>
       <div className='flex flex-col items-center'>
         <AnimateComponent>
           <div className='flex flex-col items-center max-w-[36rem] text-center nice-card p-8'>
