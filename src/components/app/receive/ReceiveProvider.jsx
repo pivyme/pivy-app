@@ -323,7 +323,7 @@ export function ReceiveProvider({ children, username, tag }) {
           throw new Error('No username provided')
         }
 
-        const minimumLoadingTime = new Promise(resolve => setTimeout(resolve, 0))
+        const minimumLoadingTime = new Promise(resolve => setTimeout(resolve, 2000))
 
         const fetchDataPromise = async () => {
           const stealthResponse = await axios.get(
