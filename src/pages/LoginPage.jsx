@@ -94,7 +94,7 @@ export default function LoginPage() {
   }
 
   let topPadding = "pt-[12rem]";
-  if(walletChain === "SUI") {
+  if (walletChain === "SUI") {
     topPadding = "pt-[12rem]";
   }
 
@@ -122,7 +122,7 @@ export default function LoginPage() {
               </p>
               <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
                 <span className='text-xs font-medium text-primary-700'>
-                  {walletChain === "SOLANA" 
+                  {walletChain === "SOLANA"
                     ? "✨ The First Ever Stealth Address Implementation on Solana"
                     : walletChain === "SUI"
                       ? "✨ The First Ever Stealth Address Implementation on SUI"
@@ -141,11 +141,28 @@ export default function LoginPage() {
             {/* Connect Wallet */}
             <ConnectWallet />
 
+            {/* Devnet Message */}
+            {walletChain === WALLET_CHAINS.SOLANA && (
+              <AnimateComponent delay={500}>
+                <div className="mt-4 px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
+                  <div className="flex items-center justify-center gap-2 text-sm font-medium text-yellow-700">
+                    <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                    <span>🎮 Currently live on Devnet</span>
+                  </div>
+                  <p className="mt-1 text-sm text-yellow-600 text-center">
+                    Don&apos;t worry about funds! We&apos;ll hook you up with some SOL and USDC to play with when you register. Let&apos;s PIVY IT UP!
+                    <br /><br />
+                    Don&apos;t forget to set your wallet to Devnet!
+                  </p>
+                </div>
+              </AnimateComponent>
+            )}
+
           </div>
         </AnimateComponent>
 
         {/* Benefits */}
-        <div className='flex flex-row items-center gap-5 mt-8'>
+        <div className='flex flex-row items-center gap-5 mt-4'>
           {BENEFITS.map((benefit, index) => (
             <AnimateComponent
               key={index}
@@ -162,6 +179,22 @@ export default function LoginPage() {
             </AnimateComponent>
           ))}
         </div>
+
+        {/* As Seen in */}
+        <AnimateComponent delay={900}>
+          <div className='flex flex-col items-center text-center mt-8 nice-card p-4 px-8'>
+            <div className='font-medium tracking-tight text-lg'>
+              As seen on
+            </div>
+            <a
+              href="https://id.beincrypto.com/stealth-address-solusi-privasi-dalam-crypto-payment/?utm_source=telegram&utm_medium=social"
+              target="_blank" rel="noopener noreferrer"
+              className='mt-2'
+            >
+              <img src="/beincrypto.svg" alt="BeInCrypto" className='w-[12rem]' />
+            </a>
+          </div>
+        </AnimateComponent>
 
         <KnowMoreCard />
       </div>
@@ -316,7 +349,7 @@ const KnowMoreCard = () => {
   if (!chainContent) return null;
 
   return (
-    <AnimateComponent delay={900}>
+    <AnimateComponent delay={1000}>
       <ColorCard color='primary' className='rounded-3xl p-3 mt-12'>
         <div className='flex flex-col items-center max-w-[48rem] text-center nice-card p-8 rounded-2xl'>
           <AnimateComponent delay={1000}>
