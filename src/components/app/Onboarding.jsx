@@ -142,7 +142,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center px-4 w-full min-h-[80vh] z-20 relative">
+    <div className="flex flex-col items-center justify-center px-4 w-full min-h-[60vh] z-20 relative">
       <AnimateComponent>
         <div className="flex flex-col items-center justify-center gap-8 text-center z-10 relative p-8 px-12 max-w-xl w-full nice-card">
           <AnimateComponent delay={100}>
