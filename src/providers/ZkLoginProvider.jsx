@@ -23,6 +23,7 @@ import { isTestnet } from '@/config';
 
 // Configuration constants
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+console.log('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
 const REDIRECT_URL = `${window.location.origin}/auth/callback`;
 const SUI_DEVNET_URL = 'https://fullnode.devnet.sui.io';
 const SUI_TESTNET_URL = 'https://fullnode.testnet.sui.io';
