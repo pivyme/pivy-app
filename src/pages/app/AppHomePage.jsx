@@ -51,7 +51,7 @@ export default function AppHomePage() {
         <>
           {!me?.username ? (
             <Onboarding />
-          ) : walletChain === 'SUI' && !hasMetaKeys ? (
+          ) : !hasMetaKeys ? (
             <GenerateMetaKey />
           ) : (
             <AppDashboard />
@@ -92,9 +92,6 @@ const AppDashboard = () => {
           <ActivityCard />
         </div>
       </AnimateComponent>
-
-      <GenerateMetaButton />
-
     </div>
   )
 }

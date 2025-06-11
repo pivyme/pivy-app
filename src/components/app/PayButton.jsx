@@ -76,6 +76,7 @@ export default function PayButton({
       console.log('label', label);
       console.log('building stealth-pay IX...');
 
+
       /* build stealth-pay IX */
       const { tx: payTx } = await buildPayTx({
         connection,

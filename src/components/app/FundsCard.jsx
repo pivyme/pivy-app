@@ -164,14 +164,14 @@ function TokenCard({ token, index }) {
         for (const pick of picks) {
           const decryptedEphPriv = await decryptEphemeralPrivKey(
             pick.memo,
-            me.metaViewPriv,
+            metaViewPriv,
             pick.ephemeralPubkey,
           );
 
           console.log("decryptedEphPriv", decryptedEphPriv);
 
           const stealthKP = await deriveStealthKeypair(
-            me.metaSpendPriv,
+            metaSpendPriv,
             me.metaViewPub,
             decryptedEphPriv,
           );
