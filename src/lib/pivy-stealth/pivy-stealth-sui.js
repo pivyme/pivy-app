@@ -9,7 +9,7 @@
  */
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
+import { decodeSuiPrivateKey, encodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import { sha512 } from '@noble/hashes/sha512';
 import { sha256 } from '@noble/hashes/sha256';
@@ -18,6 +18,7 @@ import { blake2b } from '@noble/hashes/blake2b';
 import { ed25519 } from '@noble/curves/ed25519';
 import { randomBytes } from 'crypto';
 import bs58 from 'bs58';
+import { Buffer } from 'buffer';
 
 /**
  * Constants used in stealth address calculations
@@ -211,86 +212,64 @@ export async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephP
 
 /**
  * Derives a stealth keypair from meta keys and ephemeral private key
- * @param {string} metaSpendPrivHex - Meta-spend private key (hex)
- * @param {string} metaViewPub - Meta-view public key (base58)
+ * @param {string} metaSpendPriv - Meta-spend private key (hex string)
+ * @param {string} metaViewPubB58 - Meta-view public key (base58)
  * @param {Uint8Array} ephPriv32 - Ephemeral private key
- * @returns {Promise<StealthSigner>} Stealth signer for transactions
- * @throws {Error} If derived public key doesn't match point addition
+ * @returns {Promise<Ed25519Keypair>} Stealth keypair for transactions
  */
-export async function deriveStealthKeypair(metaSpendPrivHex, metaViewPub, ephPriv32) {
-  const metaSpendPrivBytes = to32u8(metaSpendPrivHex);
-
-  // expected pub via point addition (for sanity check later)
-  const metaSpendPubBytes = await ed.getPublicKey(metaSpendPrivBytes);
-  const metaSpendPubB58 = bs58.encode(metaSpendPubBytes);
-  const stealthPubB58 = await deriveStealthPub(metaSpendPubB58, metaViewPub, ephPriv32, metaSpendPrivHex);
-  console.log('========= stealthPubB58 ========', stealthPubB58)
-
-  // tweak & stealth scalar
-  const shared = await ed.getSharedSecret(
-    to32u8(ephPriv32),
-    to32u8(metaViewPub),
-  );
-  const tweak = mod(BigInt('0x' + Buffer.from(sha256(shared)).toString('hex')), L);
-
-  const a = scalarFromSeed(metaSpendPrivBytes);
-  const s = mod(a + tweak, L);
-  const sBytes = bnTo32BytesLE(s);
-
-  // confirm math
-  const Sbytes = ed25519.ExtendedPoint.BASE.multiply(s).toRawBytes();
-  if (bs58.encode(Sbytes) !== stealthPubB58.stealthPubKeyB58)
-    throw new Error('Math mismatch: derived pub ≠ point-add pub');
-
-  return new StealthSigner(sBytes, Sbytes);
+export async function deriveStealthKeypair(metaSpendPriv, metaViewPubB58, ephPriv32) {
+  console.log('🔑 Recovering stealth keypair (uses private keys)');
+  
+  // Convert hex string to Uint8Array and create keypair
+  const metaSpendSeed = to32u8(metaSpendPriv);
+  const metaSpendKeypair = Ed25519Keypair.fromSecretKey(encodeSuiPrivateKey(metaSpendSeed, 'ED25519'));
+  const metaSpendPubB58 = bs58.encode(metaSpendKeypair.getPublicKey().toRawBytes());
+  
+  // Calculate the same shared secret and tweak
+  const shared = await ed.getSharedSecret(to32u8(ephPriv32), to32u8(metaViewPubB58));
+  const tweak = sha256(shared);
+  
+  // Derive the same stealth seed
+  const stealthSeed = sha256(new Uint8Array([
+    ...to32u8(metaSpendPubB58),
+    ...tweak,
+    ...Buffer.from('STEALTH_V1', 'utf8')
+  ]));
+  
+  // Create the same stealth keypair
+  const stealthKeypair = Ed25519Keypair.fromSecretKey(encodeSuiPrivateKey(stealthSeed, 'ED25519'));
+  const stealthAddress = stealthKeypair.getPublicKey().toSuiAddress();
+  
+  console.log('   Recovered address:', stealthAddress);
+  console.log('   Private key:', encodeSuiPrivateKey(stealthSeed, 'ED25519'));
+  
+  return stealthKeypair;
 }
 
 
-/**
- * Derives a stealth public key from meta keys and ephemeral private key
- * @param {string} metaSpendPub - Meta-spend public key (base58)
- * @param {string} metaViewPub - Meta-view public key (base58)
- * @param {Uint8Array} ephPriv32 - Ephemeral private key
- * @param {string} [metaSpendPrivHex] - Optional meta-spend private key (hex) to compute address
- * @returns {Promise<{stealthPubKeyB58: string, stealthSuiAddress: string|null}>} Stealth public key in base58 and optional address
- */
-export async function deriveStealthPub(metaSpendPub, metaViewPub, ephPriv32, metaSpendPrivHex) {
-  // tweak = H(e ⨁ B)  mod L
-  const shared = await ed.getSharedSecret(
-    to32u8(ephPriv32),
-    to32u8(metaViewPub),
-  );
-  const tweak = mod(BigInt('0x' + Buffer.from(sha256(shared)).toString('hex')), L);
-
-  // S = A + tweak·G (point addition)
-  const Abytes = to32u8(metaSpendPub);
-  let Sbytes;
-  if (ed.utils.pointAddScalar) {
-    Sbytes = ed.utils.pointAddScalar(Abytes, tweak);
-  } else {
-    const A = ed25519.ExtendedPoint.fromHex(Abytes);
-    const S = A.add(ed25519.ExtendedPoint.BASE.multiply(tweak));
-    Sbytes = S.toRawBytes();
-  }
-
-  // If metaSpendPrivHex is provided, also compute the expected address
-  let stealthSuiAddress = null;
-  if (metaSpendPrivHex) {
-    // Calculate the same scalar that StealthSigner will use
-    const metaSpendPrivBytes = to32u8(metaSpendPrivHex);
-    const a = scalarFromSeed(metaSpendPrivBytes);
-    const s = mod(a + tweak, L);
-    const stealthPrivBytes = bnTo32BytesLE(s);
-
-    // Create a keypair using the same method as StealthSigner
-    const tempKeypair = Ed25519Keypair.fromSecretKey(stealthPrivBytes);
-    stealthSuiAddress = tempKeypair.toSuiAddress();
-  }
-
-  // Return both the stealth pubkey and address (if available)
+export async function deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv32) {
+  console.log('🎯 Creating stealth address (public keys only)');
+  
+  // Calculate shared secret and tweak
+  const shared = await ed.getSharedSecret(to32u8(ephPriv32), to32u8(metaViewPubB58));
+  const tweak = sha256(shared); // Use SHA256 directly for simplicity
+  
+  // Create stealth seed deterministically
+  const stealthSeed = sha256(new Uint8Array([
+    ...to32u8(metaSpendPubB58),
+    ...tweak,
+    ...Buffer.from('STEALTH_V1', 'utf8')
+  ]));
+  
+  // Generate stealth keypair from seed (this is what Sui does internally)
+  const stealthKeypair = Ed25519Keypair.fromSecretKey(encodeSuiPrivateKey(stealthSeed, 'ED25519'));
+  const stealthAddress = stealthKeypair.getPublicKey().toSuiAddress();
+  
+  console.log('   Stealth address:', stealthAddress);
+  
   return {
-    stealthPubKeyB58: bs58.encode(Sbytes),
-    stealthSuiAddress
+    stealthPubKeyB58: bs58.encode(stealthKeypair.getPublicKey().toRawBytes()),
+    stealthSuiAddress: stealthAddress
   };
 }
 
@@ -319,7 +298,7 @@ export const prepareSuiUsdcEvmPayment = async ({
     ephPriv,
     s
   )
-  
+
   return {
     stealthOwner: stealthAddress.stealthSuiAddress,
     encryptedPayload,
