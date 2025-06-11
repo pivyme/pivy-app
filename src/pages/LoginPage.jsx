@@ -181,6 +181,11 @@ export default function LoginPage() {
                         <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
                         <span>🎮 Currently live on Sui Testnet</span>
                       </div>
+                      <p className="mt-1 text-sm text-yellow-600 text-center">
+                        Don&apos;t worry about funds! We&apos;ll hook you up with some SUI and USDC to play with when you register. Let&apos;s PIVY IT UP!
+                        <br /><br />
+                        Don&apos;t forget to set your wallet to Testnet!
+                      </p>
                     </div>
 
                     <div className="px-4 py-3 bg-blue-50/80 border border-blue-200 rounded-xl">
