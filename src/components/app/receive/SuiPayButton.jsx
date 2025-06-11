@@ -59,7 +59,6 @@ export default function SuiPayButton({
         stealthData.metaSpendPub,
         stealthData.metaViewPub,
         ephPriv,
-        stealthData.s
       )
       console.log('stealthAddress', stealthAddress)
 

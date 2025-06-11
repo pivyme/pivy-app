@@ -210,7 +210,6 @@ export async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephP
 
   return ephPriv32;
 }
-
 /*─────────────────────────────────────────────────────────────*\
  |  1. Derive *public* stealth owner from public meta keys     |
  |     (for payer-side use)                                    |

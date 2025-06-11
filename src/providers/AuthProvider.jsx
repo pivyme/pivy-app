@@ -67,6 +67,10 @@ const AuthContext = createContext({
   isConnected: false,
   connectedAddress: null,
   walletChainId: null,
+  metaSpendPriv: null,
+  metaViewPriv: null,
+  hasMetaKeys: false,
+  saveMetaKeys: () => { },
 });
 
 export function AuthProvider({ children }) {
@@ -82,6 +86,8 @@ export function AuthProvider({ children }) {
     "pivy-wallet-chain",
     WALLET_CHAINS.SOLANA
   );
+  const [metaSpendPriv, setMetaSpendPriv] = useLocalStorage("pivy-meta-spend-priv", null);
+  const [metaViewPriv, setMetaViewPriv] = useLocalStorage("pivy-meta-view-priv", null);
   const [me, setMe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
@@ -260,8 +266,9 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(() => {
     setAccessToken(null);
     setLastConnectedAddress(null);
-    // Only clear walletChain on explicit sign out
     setWalletChain(null);
+    setMetaSpendPriv(null);
+    setMetaViewPriv(null);
     handleDisconnect();
     setMe(null);
     navigate("/login");
@@ -306,6 +313,23 @@ export function AuthProvider({ children }) {
     }
   }, [getWalletState, lastConnectedAddress]);
 
+  // Function to save meta keys
+  const saveMetaKeys = useCallback((spendPriv, viewPriv) => {
+    setMetaSpendPriv(spendPriv);
+    setMetaViewPriv(viewPriv);
+  }, [setMetaSpendPriv, setMetaViewPriv]);
+
+  // Check if meta keys are complete
+  const hasMetaKeys = useMemo(() => {
+    if (!me) return false;
+    return (
+      me.metaSpendPub && 
+      me.metaViewPub && 
+      metaSpendPriv && 
+      metaViewPriv
+    );
+  }, [me, metaSpendPriv, metaViewPriv]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -321,6 +345,10 @@ export function AuthProvider({ children }) {
         isConnected,
         connectedAddress,
         walletChainId,
+        saveMetaKeys,
+        hasMetaKeys,
+        metaSpendPriv,
+        metaViewPriv,
       }}
     >
       {children}

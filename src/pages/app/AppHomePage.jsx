@@ -15,10 +15,12 @@ import ReceiveCard from '@/components/app/ReceiveCard';
 import { RESTRICTED_USERNAME } from '@/config';
 import ActivityCard from '@/components/app/ActivityCard';
 import Onboarding from '@/components/app/Onboarding';
+import GenerateMetaButton from '@/components/app/GenerateMetaButton';
+import GenerateMetaKey from '@/components/app/GenerateMetaKey';
 
 export default function AppHomePage() {
   const { isConnected } = useAuth();
-  const { accessToken, me } = useAuth();
+  const { accessToken, me, walletChain, hasMetaKeys } = useAuth();
   const { isFirstMount, disableMount } = useFirstMount();
 
   useEffect(() => {
@@ -41,10 +43,20 @@ export default function AppHomePage() {
     return <Navigate to={"/login"} replace />;
   }
 
+  console.log('me', me);
+
   return (
     <div className="container max-w-2xl mx-auto z-50 py-14 pt-[10rem] pb-[15rem] px-2 md:px-0">
       {me ? (
-        <>{me?.username ? <AppDashboard /> : <Onboarding />}</>
+        <>
+          {!me?.username ? (
+            <Onboarding />
+          ) : !hasMetaKeys ? (
+            <GenerateMetaKey />
+          ) : (
+            <AppDashboard />
+          )}
+        </>
       ) : (
         <div className="flex items-center justify-center">
           <Spinner className="w-6 h-6" />
@@ -80,7 +92,6 @@ const AppDashboard = () => {
           <ActivityCard />
         </div>
       </AnimateComponent>
-
     </div>
   )
 }

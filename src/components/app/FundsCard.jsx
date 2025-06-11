@@ -38,7 +38,7 @@ const validateSuiAddress = (address) => {
 }
 
 function TokenCard({ token, index }) {
-  const { accessToken, me, walletChain, walletChainId } = useAuth()
+  const { accessToken, me, walletChain, walletChainId, metaSpendPriv, metaViewPriv } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const { connection } = useConnection()
   const walletInstance = useWallet()
@@ -164,14 +164,14 @@ function TokenCard({ token, index }) {
         for (const pick of picks) {
           const decryptedEphPriv = await decryptEphemeralPrivKey(
             pick.memo,
-            me.metaViewPriv,
+            metaViewPriv,
             pick.ephemeralPubkey,
           );
 
           console.log("decryptedEphPriv", decryptedEphPriv);
 
           const stealthKP = await deriveStealthKeypair(
-            me.metaSpendPriv,
+            metaSpendPriv,
             me.metaViewPub,
             decryptedEphPriv,
           );
@@ -296,12 +296,18 @@ function TokenCard({ token, index }) {
             console.log('Deriving stealth keypair...');
             const decryptedEphPriv = await decryptEphemeralPrivKeySui(
               pick.memo,
-              me.metaViewPriv,
+              metaViewPriv,
               pick.ephemeralPubkey,
             );
 
+            console.log({
+              metaspendpriv: metaSpendPriv,
+              metaViewPub: me.metaViewPub,
+              decryptedEphPriv: decryptedEphPriv,
+            })
+
             const stealthKP = await deriveStealthKeypairSui(
-              me.metaSpendPriv,
+              metaSpendPriv,
               me.metaViewPub,
               decryptedEphPriv
             );

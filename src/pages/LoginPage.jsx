@@ -142,26 +142,61 @@ export default function LoginPage() {
 
               {walletChain === WALLET_CHAINS.SOLANA && (
                 <AnimateComponent delay={200}>
-                  <div className="mt-4 px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
-                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-yellow-700">
-                      <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                      <span>🎮 Currently live on Devnet</span>
+                  <div className='flex flex-col gap-2'>
+                    <div className="mt-4 px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
+                      <div className="flex items-center justify-center gap-2 text-sm font-medium text-yellow-700">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                        <span>🎮 Currently live on Devnet</span>
+                      </div>
+                      <p className="mt-1 text-sm text-yellow-600 text-center">
+                        Don&apos;t worry about funds! We&apos;ll hook you up with some SOL and USDC to play with when you register. Let&apos;s PIVY IT UP!
+                        <br /><br />
+                        Don&apos;t forget to set your wallet to Devnet!
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm text-yellow-600 text-center">
-                      Don&apos;t worry about funds! We&apos;ll hook you up with some SOL and USDC to play with when you register. Let&apos;s PIVY IT UP!
-                      <br /><br />
-                      Don&apos;t forget to set your wallet to Devnet!
-                    </p>
+                    <div className="px-4 py-3 bg-blue-50/80 border border-blue-200 rounded-xl">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 text-sm font-medium text-blue-700 mb-2">
+                          <span>🔒</span>
+                          <span>Enhanced Security Update</span>
+                        </div>
+                        <p className="text-xs text-blue-600 leading-relaxed">
+                          We recently completed a major security overhaul of our stealth address implementation to ensure
+                          fully self-custodial privacy. As part of this enhancement, our database was reset,
+                          so previously created accounts will need to be recreated.
+                          <br /><br />
+                          Thank you for your understanding!
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </AnimateComponent>
               )}
 
               {walletChain === WALLET_CHAINS.SUI && (
                 <AnimateComponent delay={200}>
-                  <div className="mt-4 px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
-                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-yellow-700">
-                      <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                      <span>🎮 Currently live on Sui Testnet</span>
+                  <div className="mt-4 space-y-3">
+                    <div className="px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
+                      <div className="flex items-center justify-center gap-2 text-sm font-medium text-yellow-700">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                        <span>🎮 Currently live on Sui Testnet</span>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-3 bg-blue-50/80 border border-blue-200 rounded-xl">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 text-sm font-medium text-blue-700 mb-2">
+                          <span>🔒</span>
+                          <span>Enhanced Security Update</span>
+                        </div>
+                        <p className="text-xs text-blue-600 leading-relaxed">
+                          We recently completed a major security overhaul of our stealth address implementation to ensure
+                          fully self-custodial privacy. As part of this enhancement, our database was reset,
+                          so previously created accounts will need to be recreated.
+                          <br /><br />
+                          Thank you for your understanding!
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </AnimateComponent>
