@@ -1,14 +1,15 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import RootProvider from "./providers/RootProvider";
-import IndexLayout from "./layouts/IndexLayout";
 import { ProtectedRoute } from "./providers/AuthProvider";
 import AppLayout from "./layouts/AppLayout";
+import LandingLayout from "./layouts/LandingLayout";
 import LoginPage from "./pages/LoginPage";
 import AppHomePage from "./pages/app/AppHomePage";
 import AppAlertPage from "./pages/app/AppAlertPage";
 import AppLinkPage from "./pages/app/AppLinkPage";
 import ReceivePage from "./pages/ReceivePage";
 import ReceiveLayout from "./layouts/ReceiveLayout";
+import IndexPage from "./pages/IndexPage";
 
 // Helper function to check if we're on a subdomain
 const isSubdomain = () => {
@@ -40,6 +41,16 @@ const getTagFromPath = () => {
 
 const router = createBrowserRouter([
   {
+    path: "/landing",
+    element: <LandingLayout />,
+    children: [
+      {
+        path: "",
+        element: <IndexPage />,
+      }
+    ]
+  },
+  {
     path: "/",
     element: <AppLayout />,
     children: [
@@ -70,7 +81,7 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <LoginPage />,
-      },
+      }
     ],
   },
   {

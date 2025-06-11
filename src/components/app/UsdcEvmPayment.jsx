@@ -2,7 +2,7 @@ import { ArrowRightIcon, InfoIcon, CheckCircleIcon, Loader2Icon } from 'lucide-r
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi'
 import React, { useState, useEffect } from 'react'
-import { CCTP_CONTRACTS, CHAINS, USDC_CONTRACT_ADDRESS } from '@/config';
+import { CCTP_CONTRACTS, CHAINS, isTestnet, USDC_CONTRACT_ADDRESS } from '@/config';
 import { USDC_ABI } from '@/lib/usdc/usdcAbi';
 import { formatUnits, parseUnits } from 'viem';
 import { formatUiNumber } from '@/utils/formatting';
@@ -14,64 +14,107 @@ import BounceButton from '@/components/elements/BounceButton'
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion'
 import AnimateComponent from '@/components/elements/AnimateComponent'
+import { prepareSuiUsdcEvmPayment } from '@/lib/pivy-stealth/pivy-stealth-sui';
 
 const USDC_CONTRACT = {
   abi: USDC_ABI,
   addresses: import.meta.env.VITE_IS_TESTNET === "true" ? USDC_CONTRACT_ADDRESS.DEVNET : USDC_CONTRACT_ADDRESS.MAINNET
 }
 
-const LoadingStep = ({ isActive, isCompleted, title, description, isLast }) => (
-  <div className="flex items-start gap-3">
-    <div className="flex flex-col items-center">
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-        isCompleted 
-          ? 'bg-emerald-100 text-emerald-700 shadow-inner shadow-emerald-200' 
-          : isActive 
-            ? 'bg-primary-50 text-primary-500'
-            : 'bg-gray-100 text-gray-400'
-      }`}>
-        {isCompleted ? (
-          <CheckCircleIcon className="w-5 h-5" />
-        ) : isActive ? (
-          <Loader2Icon className="w-5 h-5 animate-spin" />
-        ) : (
-          <div className="w-2 h-2 rounded-full bg-current" />
+// Constants for chain-specific configurations
+const CHAIN_CONFIG = {
+  SOLANA: {
+    getChain: () => isTestnet ? CHAINS.DEVNET : CHAINS.MAINNET,
+    preparePayment: prepareUsdcEvmPayment,
+    getRecipientBytes32: (prepareData) => solanaAddressToHex(prepareData.stealthAta.toBase58()),
+    formatCctpData: (prepareData, txData, attestation, stealthData, chain, usdcAddress) => ({
+      srcDomain: txData.messengerContractInfo.domain,
+      srcTxHash: txData.hash,
+      amount: txData.amountInWei.toString(),
+      stealthAta: prepareData.stealthAta.toBase58(),
+      stealthOwnerPub: prepareData.stealthOwner.toBase58(),
+      ephPub: prepareData.ephPub.toBase58(),
+      attestation,
+      usdcAddress,
+      tokenMessengerMinterProgramInfo: CCTP_CONTRACTS.TOKEN_MESSENGER_MINTER_PROGRAM[chain.id],
+      tokenTransmitterProgramInfo: CCTP_CONTRACTS.TOKEN_TRANSMITTER_PROGRAM[chain.id],
+      encryptedPayload: prepareData.encryptedPayload,
+      linkId: stealthData.linkData.id
+    }),
+    getChainParam: () => import.meta.env.VITE_IS_TESTNET === "true" ? 'DEVNET' : 'MAINNET'
+  },
+  SUI: {
+    getChain: () => isTestnet ? CHAINS.SUI_TESTNET : CHAINS.SUI_MAINNET,
+    preparePayment: prepareSuiUsdcEvmPayment,
+    getRecipientBytes32: (prepareData) => ethers.hexlify(prepareData.stealthOwner),
+    formatCctpData: (prepareData, txData, attestation, stealthData, chain, usdcAddress) => {
+      const chainKey = isTestnet ? 'SUI_TESTNET' : 'SUI_MAINNET';
+      return {
+        srcDomain: txData.messengerContractInfo.domain,
+        srcTxHash: txData.hash,
+        amount: txData.amountInWei.toString(),
+        stealthOwner: prepareData.stealthOwner,
+        ephPub: prepareData.ephPub,
+        attestation,
+        usdcAddress,
+        tokenMessengerMinterProgramInfo: {
+          domain: 8,
+          address: CCTP_CONTRACTS.TOKEN_MESSENGER_MINTER_PROGRAM[chainKey].address
+        },
+        tokenTransmitterProgramInfo: {
+          domain: 8,
+          address: CCTP_CONTRACTS.TOKEN_TRANSMITTER_PROGRAM[chainKey].address
+        },
+        messageTransmitterStateProgramInfo: CCTP_CONTRACTS.MESSAGE_TRANSMITTER_STATE[chainKey],
+        tokenMessengerMinterStateProgramInfo: CCTP_CONTRACTS.TOKEN_MESSENGER_MINTER_STATE[chainKey],
+        usdcTreasuryObject: CCTP_CONTRACTS.USDC_TREASURY[chainKey],
+        usdcSuiPackage: CCTP_CONTRACTS.USDC_PACKAGE[chainKey],
+        encryptedPayload: prepareData.encryptedPayload,
+        linkId: stealthData.linkData.id
+      };
+    },
+    getChainParam: () => isTestnet ? 'SUI_TESTNET' : 'SUI_MAINNET'
+  }
+};
+
+const LoadingStep = ({ isActive, isCompleted, title, description, isLast }) => {
+  let statusClass = 'bg-gray-100 text-gray-400';
+  let titleClass = 'text-gray-400';
+  let descriptionClass = 'text-gray-400';
+
+  if (isCompleted) {
+    statusClass = 'bg-emerald-100 text-emerald-700 shadow-inner shadow-emerald-200';
+    titleClass = 'text-emerald-700';
+    descriptionClass = 'text-emerald-700';
+  } else if (isActive) {
+    statusClass = 'bg-primary-50 text-primary-500';
+    titleClass = 'text-primary-900';
+    descriptionClass = 'text-gray-600';
+  }
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex flex-col items-center">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${statusClass}`}>
+          {isCompleted && <CheckCircleIcon className="w-5 h-5" />}
+          {isActive && <Loader2Icon className="w-5 h-5 animate-spin" />}
+          {!isCompleted && !isActive && <div className="w-2 h-2 rounded-full bg-current" />}
+        </div>
+        {!isLast && (
+          <div className={`w-0.5 h-12 ${isCompleted ? 'bg-emerald-200' : 'bg-gray-200'}`} />
         )}
       </div>
-      {!isLast && (
-        <div className={`w-0.5 h-12 ${
-          isCompleted ? 'bg-emerald-200' : 'bg-gray-200'
-        }`} />
-      )}
+      <div>
+        <h3 className={`font-semibold ${titleClass}`}>{title}</h3>
+        <p className={`text-sm ${descriptionClass}`}>{description}</p>
+      </div>
     </div>
-    <div>
-      <h3 className={`font-semibold ${
-        isCompleted 
-          ? 'text-emerald-700'
-          : isActive 
-            ? 'text-primary-900'
-            : 'text-gray-400'
-      }`}>
-        {title}
-      </h3>
-      <p className={`text-sm ${
-        isCompleted 
-          ? 'text-emerald-700'
-          : isActive 
-            ? 'text-gray-600'
-            : 'text-gray-400'
-      }`}>
-        {description}
-      </p>
-    </div>
-  </div>
-);
+  );
+};
 
 export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSuccess }) {
   const { isConnected, chain, address } = useAccount()
-  const signer = useEthersSigner({
-    chainId: chain?.id
-  })
+  const signer = useEthersSigner({ chainId: chain?.id })
   const usdcAddress = USDC_CONTRACT.addresses[chain?.id || 11155111];
   const [isApproving, setIsApproving] = useState(false)
   const [isPaying, setIsPaying] = useState(false)
@@ -80,7 +123,7 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
   const [bridgeData, setBridgeData] = useState(null)
 
   // Get USDC balance
-  const { isLoading: isLoadingUsdcBalance, data: usdcBalance, error: usdcBalanceError } = useReadContract({
+  const { isLoading: isLoadingUsdcBalance, data: usdcBalance } = useReadContract({
     address: usdcAddress,
     abi: USDC_CONTRACT.abi,
     functionName: 'balanceOf',
@@ -115,12 +158,12 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
     try {
       setIsApproving(true)
       const usdcContract = new ethers.Contract(usdcAddress, USDC_CONTRACT.abi, signer)
-      
+
       const tx = await usdcContract.approve(
         CCTP_CONTRACTS.TOKEN_MESSENGER[chain.id].address,
         ethers.MaxUint256
       )
-      
+
       await tx.wait()
       await refetchAllowance()
     } catch (error) {
@@ -153,89 +196,118 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
     try {
       setIsPaying(true)
       setCurrentStep(1)
-      const solanaChain = import.meta.env.VITE_IS_TESTNET === "true" ? CHAINS.DEVNET : CHAINS.MAINNET
 
-      const prepareData = await prepareUsdcEvmPayment({
-        metaSpendPub: stealthData.metaSpendPub,
-        metaViewPub: stealthData.metaViewPub,
-        mint: new PublicKey(solanaChain.tokens.find(t => t.symbol === 'USDC').address)
-      })
+      const chainConfig = CHAIN_CONFIG[stealthData.sourceChain];
+      if (!chainConfig) {
+        throw new Error('Unsupported source chain');
+      }
 
-      const recipientBytes32 = solanaAddressToHex(prepareData.stealthAta.toBase58())
+      const targetChain = chainConfig.getChain();
+      let prepareData;
 
+      if (stealthData.sourceChain === "SOLANA") {
+        prepareData = await chainConfig.preparePayment({
+          metaSpendPub: stealthData.metaSpendPub,
+          metaViewPub: stealthData.metaViewPub,
+          mint: new PublicKey(targetChain.tokens.find(t => t.symbol === 'USDC').address)
+        });
+      } else {
+        prepareData = await chainConfig.preparePayment({
+          metaSpendPub: stealthData.metaSpendPub,
+          metaViewPub: stealthData.metaViewPub,
+          s: stealthData.s
+        });
+      }
+
+      const recipientBytes32 = chainConfig.getRecipientBytes32(prepareData);
       const messengerContractInfo = CCTP_CONTRACTS.TOKEN_MESSENGER[parseInt(chain.id)];
-      const TM_ABI = ['function depositForBurn(uint256,uint32,bytes32,address)'];
-      const messengerContract = new ethers.Contract(messengerContractInfo.address, TM_ABI, signer);
+      const messengerContract = new ethers.Contract(
+        messengerContractInfo.address,
+        ['function depositForBurn(uint256,uint32,bytes32,address)'],
+        signer
+      );
 
-      const amountInWei = parseUnits(amount.toString(), 6)
+      const amountInWei = parseUnits(amount.toString(), 6);
       const tx = await messengerContract.depositForBurn(
         amountInWei,
-        5, // Solana domain
+        stealthData.sourceChain === "SUI" ? 8 : 5, // Domain ID: 5 for Solana, 8 for Sui
         recipientBytes32,
         usdcAddress
-      )
+      );
 
-      await tx.wait()
-      console.log('depositForBurn tx', tx.hash)
+      await tx.wait();
+      console.log('depositForBurn tx', tx.hash);
 
-      setCurrentStep(2)
+      setCurrentStep(2);
       const attestation = await retrieveAttestation(
         messengerContractInfo.domain,
         tx.hash
-      )
-      console.log('attestation', attestation)
+      );
 
-      const cctpData = {
-        srcDomain: messengerContractInfo.domain,
-        srcTxHash: tx.hash,
-        amount: amountInWei.toString(),
-        stealthAta: prepareData.stealthAta.toBase58(),
-        stealthOwnerPub: prepareData.stealthOwner.toBase58(),
-        ephPub: prepareData.ephPub.toBase58(),
+      const txData = {
+        messengerContractInfo,
+        hash: tx.hash,
+        amountInWei
+      };
 
-        attestation: attestation,
+      const cctpData = chainConfig.formatCctpData(
+        prepareData,
+        txData,
+        attestation,
+        stealthData,
+        targetChain,
+        usdcAddress
+      );
 
-        usdcAddress: usdcAddress,
-        tokenMessengerMinterProgramInfo: CCTP_CONTRACTS.TOKEN_MESSENGER_MINTER_PROGRAM[solanaChain.id],
-        tokenTransmitterProgramInfo: CCTP_CONTRACTS.TOKEN_TRANSMITTER_PROGRAM[solanaChain.id],
-
-        encryptedPayload: prepareData.encryptedPayload,
-        linkId: stealthData.linkData.id
-      }
-
-      console.log('cctpData', cctpData)
-      setCurrentStep(3)
+      setCurrentStep(3);
 
       const res = await axios({
         method: 'POST',
         url: `${import.meta.env.VITE_BACKEND_URL}/cctp/process-cctp-tx`,
         data: cctpData,
         params: {
-          chain: import.meta.env.VITE_IS_TESTNET === "true" ? 'DEVNET' : 'MAINNET'
+          chain: chainConfig.getChainParam()
         }
-      })
+      });
 
-      console.log('res', res)
-      setBridgeData(res.data)
-      setCurrentStep(4)
+      if (stealthData.sourceChain === "SOLANA") {
+        setBridgeData(res.data);
+        setCurrentStep(4);
 
-      // Call onSuccess with payment details
-      onSuccess?.({
-        signature: res.data.receiveSignature,
-        amount: amount,
-        token: {
-          symbol: 'USDC',
-          name: 'USD Coin',
-          imageUrl: '/tokens/usdc.png'
-        },
-        timestamp: Date.now(),
-        bridgeData: res.data
-      })
+        onSuccess?.({
+          signature: res.data.receiveSignature,
+          amount: amount,
+          token: {
+            symbol: 'USDC',
+            name: 'USD Coin',
+            imageUrl: '/tokens/usdc.png'
+          },
+          timestamp: Date.now(),
+          bridgeData: res.data
+        });
+      } else if (stealthData.sourceChain === "SUI") {
+        // Handle Sui success
+        setBridgeData(res.data);
+        setCurrentStep(4);
+
+        onSuccess?.({
+          signature: res.data.transactionDigest,
+          amount: amount,
+          token: {
+            symbol: 'USDC',
+            name: 'USD Coin',
+            imageUrl: '/tokens/usdc.png'
+          },
+          timestamp: Date.now(),
+          bridgeData: res.data
+        });
+      }
+
     } catch (error) {
-      console.error('Error processing payment:', error)
-      setCurrentStep(0)
+      console.log('Error processing payment:', error);
+      setCurrentStep(0);
     } finally {
-      setIsPaying(false)
+      setIsPaying(false);
     }
   }
 
@@ -247,25 +319,82 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
       <AnimateComponent>
         <div className="space-y-8">
           <div className="text-center space-y-4">
-            <motion.img
-              src="/tokens/usdc.png"
-              alt="USDC"
-              className="w-12 h-12 mx-auto"
-              initial={{ scale: 0 }}
-              animate={{ 
-                scale: [0, 1.2, 1, 1.1, 1], 
-                rotate: [0, 10, -10, 10, 0],
-                y: [0, -3, 0, 3, 0]
-              }}
-              transition={{ 
-                duration: 3, 
-                ease: 'easeInOut', 
-                repeat: Infinity, 
-                repeatType: 'loop'
-              }}
-            />
+            <div className="flex items-center justify-center space-x-8 relative">
+              {/* USDC Logo */}
+              <motion.img
+                src="/tokens/usdc.png"
+                alt="USDC"
+                className="w-12 h-12"
+                initial={{ scale: 0, x: 0 }}
+                animate={{
+                  scale: [0, 1.2, 1, 1.1, 1],
+                  x: [-20, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  ease: 'easeOut',
+                }}
+              />
+              
+              {/* Connecting Dots Animation */}
+              <div className="flex space-x-1">
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 0,
+                  }}
+                />
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 0.5,
+                  }}
+                />
+                <motion.div
+                  className="h-2 w-2 rounded-full bg-blue-500"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: 1,
+                  }}
+                />
+              </div>
+
+              {/* Chain Logo */}
+              <motion.img
+                src={`/chains/${stealthData.sourceChain.toLowerCase()}.svg`}
+                alt={stealthData.sourceChain}
+                className="w-12 h-12"
+                initial={{ scale: 0, x: 0 }}
+                animate={{
+                  scale: [0, 1.2, 1, 1.1, 1],
+                  x: [20, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  ease: 'easeOut',
+                }}
+              />
+            </div>
+
             <h3 className="text-2xl font-extrabold text-gray-900">
-              Bridging USDC to Solana
+              Bridging USDC to {stealthData.sourceChain.charAt(0) + stealthData.sourceChain.slice(1).toLowerCase()}
             </h3>
             <p className="text-gray-600 font-medium">
               Hang tight while we sprinkle some cross-chain magic ✨
@@ -288,8 +417,8 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
             <LoadingStep
               isActive={currentStep === 3}
               isCompleted={currentStep > 3}
-              title="Claiming on Solana"
-              description="Sending fresh USDC to the receiver on Solana"
+              title={`Claiming on ${stealthData.sourceChain.charAt(0) + stealthData.sourceChain.slice(1).toLowerCase()}`}
+              description={`Sending fresh USDC to the receiver on ${stealthData.sourceChain.charAt(0) + stealthData.sourceChain.slice(1).toLowerCase()}`}
               isLast
             />
           </div>
@@ -305,9 +434,19 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
     )
   }
 
+  let actionButtonContent = 'Pay';
+  if (hasInsufficientBalance) {
+    actionButtonContent = 'Insufficient USDC balance';
+  } else if (needsApproval) {
+    actionButtonContent = isApproving ? '✨ Approving...' : '🔓 Approve USDC';
+  } else if (isPaying) {
+    actionButtonContent = '✨ Processing...';
+  } else if (stealthData?.linkData?.type === 'DOWNLOAD') {
+    actionButtonContent = '🎁 Pay & Download';
+  }
+
   return (
     <AnimateComponent>
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <img
@@ -335,17 +474,14 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
         </button>
       </div>
 
-      {/* Connect Button - Always visible */}
-      <div className={!isConnected ? 'py-16 flex justify-center' : 'mb-6 flex justify-center'}>
+      <div className={isConnected ? 'mb-6 flex justify-center' : 'py-16 flex justify-center'}>
         <ConnectButton
           label='Connect EVM Wallet to continue'
         />
       </div>
 
-      {/* Payment Interface - Only when connected */}
       {isConnected && (
         <>
-          {/* Amount Input */}
           <div className="relative mb-2">
             <input
               type="text"
@@ -359,57 +495,28 @@ export default function UsdcEvmPayment({ amount, setAmount, stealthData, onSucce
             </div>
           </div>
 
-          {/* Balance Info */}
           <div className="flex justify-between items-center text-sm px-1 mb-6">
             <span className="text-gray-600">Balance</span>
             <span className="text-gray-900">
-              {isLoadingUsdcBalance ? 'Loading...' : `${formatUiNumber(formattedUsdcBalance, 'USDC')}`}
+              {isLoadingUsdcBalance ? 'Loading...' : formatUiNumber(formattedUsdcBalance, 'USDC')}
             </span>
           </div>
 
-          {/* Action Button */}
           <div className='mb-6 mt-8'>
-            {hasInsufficientBalance ? (
-              <BounceButton
-                className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
-                radius="full"
-                size="lg"
-                isDisabled={true}
-              >
-                Insufficient USDC balance
-              </BounceButton>
-            ) : needsApproval ? (
-              <BounceButton
-                className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
-                radius="full"
-                size="lg"
-                onPress={handleApproveUsdc}
-                isLoading={isApproving}
-                isDisabled={isApproving}
-              >
-                {isApproving ? '✨ Approving...' : '🔓 Approve USDC'}
-              </BounceButton>
-            ) : (
-              <BounceButton
-                className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
-                radius="full"
-                size="lg"
-                onPress={handlePayEvmUSDC}
-                isLoading={isPaying}
-                isDisabled={isPaying || !amount}
-              >
-                {isPaying ? '✨ Processing...' : (
-                  stealthData?.linkData?.type === 'DOWNLOAD'
-                    ? '🎁 Pay & Download'
-                    : '💰 Pay'
-                )}
-              </BounceButton>
-            )}
+            <BounceButton
+              className="tracking-tight font-bold px-8 py-6 text-lg bg-primary-500 hover:bg-primary-600 transition-colors shadow-sm w-full"
+              radius="full"
+              size="lg"
+              onPress={hasInsufficientBalance ? undefined : (needsApproval ? handleApproveUsdc : handlePayEvmUSDC)}
+              isLoading={isApproving || isPaying}
+              isDisabled={hasInsufficientBalance || isApproving || isPaying || !amount}
+            >
+              {actionButtonContent}
+            </BounceButton>
           </div>
         </>
       )}
 
-      {/* Footer Note */}
       <p className="text-center text-xs text-gray-500">
         Powered by USDC&apos;s CCTP
       </p>

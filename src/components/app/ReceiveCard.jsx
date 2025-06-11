@@ -1,58 +1,94 @@
 import { useAuth } from '@/providers/AuthProvider'
 import { Button, Tab, Tabs } from '@heroui/react'
-import { CopyIcon, ExternalLinkIcon, ZapIcon, RotateCwIcon, WalletCardsIcon, LinkIcon, SparklesIcon } from 'lucide-react'
+import { CopyIcon, ExternalLinkIcon, ZapIcon, RotateCwIcon, WalletCardsIcon, LinkIcon, SparklesIcon, ArrowUpRightIcon, PencilIcon } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { Input } from '@heroui/react'
+import { useNavigate } from 'react-router-dom'
 import AnimateComponent from '../elements/AnimateComponent'
 import { motion, AnimatePresence } from 'framer-motion'
 import { shortenAddress } from '@/utils/misc'
+import EditUsernameModal from './EditUsernameModal'
+
+const TABS = [
+  {
+    id: 'link',
+    label: 'Link',
+    icon: <LinkIcon className='w-4 h-4' />
+  },
+  {
+    id: 'quick',
+    label: 'Quick',
+    icon: <ZapIcon className='w-4 h-4' />
+  },
+  // {
+  //   id: 'address',
+  //   label: 'Address',
+  //   icon: <WalletCardsIcon className='w-4 h-4' />
+  // }
+]
 
 export default function ReceiveCard() {
   const { me } = useAuth()
-  const TABS = [
-    {
-      id: 'link',
-      label: 'Link',
-      icon: <LinkIcon className='w-4 h-4' />
-    },
-    {
-      id: 'quick',
-      label: 'Quick',
-      icon: <ZapIcon className='w-4 h-4' />
-    },
-    // {
-    //   id: 'address',
-    //   label: 'Address',
-    //   icon: <WalletCardsIcon className='w-4 h-4' />
-    // }
-  ]
-
+  const navigate = useNavigate()
+  const [isHovered, setIsHovered] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedTab, setSelectedTab] = useState(TABS[0].id)
 
   console.log('me', me)
 
   return (
     <div className='nice-card p-4'>
-      <Tabs
-        selectedKey={selectedTab} onSelectionChange={setSelectedTab}
-        radius='full'
-        classNames={{
-          tabContent: "group-data-[selected=true]:text-[#ffffff] text-lg font-semibold",
-          cursor: 'bg-black'
-        }}
-        size='md'
-      >
-        {TABS.map((tab) => (
-          <Tab key={tab.id}
-            title={
-              <div className='flex flex-row items-center gap-2'>
-                {tab.icon}
-                <p className='text-lg font-semibold'>{tab.label}</p>
-              </div>
-            }
-          />
-        ))}
-      </Tabs>
+      <div className='flex flex-row items-center justify-between'>
+        <Tabs
+          selectedKey={selectedTab} onSelectionChange={setSelectedTab}
+          radius='full'
+          classNames={{
+            tabContent: "group-data-[selected=true]:text-[#ffffff] text-lg font-semibold",
+            cursor: 'bg-black'
+          }}
+          size='md'
+        >
+          {TABS.map((tab) => (
+            <Tab key={tab.id}
+              title={
+                <div className='flex flex-row items-center gap-2'>
+                  {tab.icon}
+                  <p className='text-lg font-semibold'>{tab.label}</p>
+                </div>
+              }
+            />
+          ))}
+        </Tabs>
+
+        {/* Username Badge */}
+        <div className="flex items-center gap-2 bg-black/5 px-3 py-1.5 rounded-full">
+          <motion.div
+            animate={{
+              rotate: isHovered ? [0, -10, 10, -10, 0] : 0,
+              scale: isHovered ? 1.1 : 1
+            }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+          >
+            🏷️
+          </motion.div>
+          <span className="font-medium text-sm">
+            {me?.username}
+          </span>
+          <div className="h-3 w-[1px] bg-black/10" />
+          <Button
+            isIconOnly
+            variant="light"
+            radius="full"
+            size="sm"
+            className="min-w-unit-6 w-6 h-6 hover:bg-black/10"
+            onClick={() => setIsEditModalOpen(true)}
+            onHoverStart={() => setIsHovered(true)}
+            onHoverEnd={() => setIsHovered(false)}
+          >
+            <PencilIcon className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
 
       <div className='mt-4 relative overflow-visible'>
         <AnimatePresence initial={false} mode="popLayout">
@@ -61,7 +97,7 @@ export default function ReceiveCard() {
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ 
+            transition={{
               type: "spring",
               stiffness: 400,
               damping: 15,
@@ -75,6 +111,11 @@ export default function ReceiveCard() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <EditUsernameModal
+        open={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+      />
     </div>
   )
 }
@@ -86,7 +127,7 @@ const LinkTab = () => {
 
   const displayLink = `pivy.me/${me?.username}`
   const actualLink = `${window.location.origin}/${me?.username}`
-  
+
   const handleOpenLink = () => {
     window.open(actualLink, '_blank')
   }
@@ -135,8 +176,8 @@ const LinkTab = () => {
               <motion.div
                 key={isCopied ? 'copied' : 'copy'}
                 initial={{ opacity: 0, scale: 0.7 }}
-                animate={{ 
-                  opacity: 1, 
+                animate={{
+                  opacity: 1,
                   scale: 1,
                   rotate: isCopied ? [0, 10, -5, 0] : 0
                 }}
@@ -149,7 +190,7 @@ const LinkTab = () => {
                 {isCopied ? (
                   <div className="text-green-500">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                      <path d="M20 6L9 17l-5-5"/>
+                      <path d="M20 6L9 17l-5-5" />
                     </svg>
                   </div>
                 ) : (
@@ -163,7 +204,7 @@ const LinkTab = () => {
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: -35 }}
                   exit={{ opacity: 0, y: -40 }}
-                  transition={{ 
+                  transition={{
                     duration: 0.2,
                     ease: "circOut"
                   }}
@@ -199,7 +240,7 @@ const QuickPaymentTab = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
     }
-    
+
     setShowComingSoon(true)
     timeoutRef.current = setTimeout(() => {
       setShowComingSoon(false)
@@ -274,7 +315,6 @@ const AddressTab = () => {
   const handleRefresh = () => {
     if (isRefreshing) return
     setIsRefreshing(true)
-    // TODO: Implement address refresh
     setTimeout(() => setIsRefreshing(false), 600)
   }
 
@@ -300,11 +340,11 @@ const AddressTab = () => {
             onPress={handleRefresh}
           >
             <motion.div
-              animate={{ 
+              animate={{
                 rotate: isRefreshing ? [0, 360] : 0,
                 scale: isRefreshing ? 1.2 : 1
               }}
-              transition={{ 
+              transition={{
                 rotate: {
                   duration: 0.6,
                   ease: [0.175, 0.885, 0.32, 1.275],

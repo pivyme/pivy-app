@@ -3,7 +3,7 @@
 \*───────────────────────────────────────────────────────────────────*/
 
 import {
-  Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction,
+  Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction,
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -19,7 +19,7 @@ import BN from 'bn.js';
 import bs58 from 'bs58';
 import { PIVY_STEALTH_IDL } from './IDL.js';
 import { randomBytes } from 'crypto';
-import { ethers, hexlify } from 'ethers';
+import { hexlify } from 'ethers';
 
 class StealthSigner {
   constructor(sBytes) {
@@ -29,7 +29,7 @@ class StealthSigner {
   }
 
   async signMessage(message) {
-    const msg = typeof message === 'string' ? Buffer.from(message) : new Uint8Array(message); 
+    const msg = typeof message === 'string' ? Buffer.from(message) : new Uint8Array(message);
 
     const prefix = sha512(this.scalarBytes).slice(32); // 32-byte prefix
 
@@ -135,13 +135,6 @@ export async function deriveStealthPub(metaSpend58, metaView58, ephPriv32) {
   return new PublicKey(Sbytes);
 }
 
-// Generate an encoded payload containing the ephemeral private key
-export function createEphemeralPayload(ephPriv32) {
-  // Simple approach - just encode the ephemeral private key directly
-  // In a real implementation, you'd want to encrypt this with the recipient's meta view key
-  return bs58.encode(ephPriv32);
-}
-
 // Securely encrypt the ephemeral private key with the meta view public key
 // Only someone with the corresponding meta view private key can decrypt it
 export async function encryptEphemeralPrivKey(ephPriv32, metaViewPub58) {
@@ -217,7 +210,6 @@ export async function decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephP
 
   return ephPriv32;
 }
-
 /*─────────────────────────────────────────────────────────────*\
  |  1. Derive *public* stealth owner from public meta keys     |
  |     (for payer-side use)                                    |
