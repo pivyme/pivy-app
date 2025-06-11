@@ -58,8 +58,8 @@ function TokenCard({ token, index }) {
 
   const suiWallet = useSuiWallet()
 
-  const [amount, setAmount] = useState("0.001")
-  const [address, setAddress] = useState("0x059a5aee63a1ba71241af0b4f35aec9c33224abe8f72553969399b6dacc94d78")
+  const [amount, setAmount] = useState("")
+  const [address, setAddress] = useState("")
   const [error, setError] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
