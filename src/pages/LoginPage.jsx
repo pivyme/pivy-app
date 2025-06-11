@@ -6,12 +6,13 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { ArrowRightIcon, ShieldIcon, SmileIcon, ZapIcon } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
-import { Navigate } from 'react-router'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit'
 import ConnectWallet from '@/components/login/ConnectWallet'
 import { WALLET_CHAINS } from '@/providers/AuthProvider'
 import ColorCard from '@/components/elements/ColorCard'
+import { Progress, Spinner } from '@heroui/react'
 
 const BENEFITS = [
   {
@@ -83,11 +84,30 @@ const SHOWCASE_LINKS = [
 ];
 
 export default function LoginPage() {
-  const { signIn, isSignedIn, walletChain } = useAuth();
+  const { signIn, isSignedIn, walletChain, zkLoginUserAddress } = useAuth();
   const { connected: solanaConnected } = useWallet();
   const { connected: suiConnected } = useSuiWallet();
+  const [searchParams] = useSearchParams();
 
-  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA
+    ? solanaConnected
+    : (zkLoginUserAddress || suiConnected);
+
+  // Check for zkLogin error
+  const zkLoginError = searchParams.get('error') === 'zklogin_failed';
+
+  // Clear zkLogin error when user switches chains or connects a wallet
+  useEffect(() => {
+    if ((isConnected || zkLoginUserAddress) && zkLoginError) {
+      // Clear the error parameter when user has a connection
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('error');
+      const newSearch = newParams.toString();
+      window.history.replaceState(null, '',
+        window.location.pathname + (newSearch ? `?${newSearch}` : '')
+      );
+    }
+  }, [isConnected, zkLoginUserAddress, zkLoginError, searchParams]);
 
   if (isConnected && isSignedIn) {
     return <Navigate to="/" replace />
@@ -99,7 +119,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`w-full min-h-screen flex items-center px-4 md:px-0 justify-center pb-[10rem] ${topPadding}`}>
+    <div className={`w-full min-h-screen flex items-center px-4 md:px-2 lg:px-0 justify-center pb-[10rem] ${topPadding}`}>
       <div className='w-full max-w-[80rem] mx-auto nice-card'>
         <div className='grid grid-cols-12 gap-4 p-4'>
           {/* Left Part */}
@@ -139,6 +159,37 @@ export default function LoginPage() {
               <AnimateComponent delay={500}>
                 <ConnectWallet />
               </AnimateComponent>
+
+              {/* zkLogin Error Message */}
+              {zkLoginError && (
+                <AnimateComponent delay={600}>
+                  <div className="mt-4 px-4 py-3 bg-red-50/80 border border-red-200 rounded-xl text-center">
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-red-700">
+                      <span>❌</span>
+                      <span>Google Sign-in Failed</span>
+                    </div>
+                    <p className="mt-1 text-sm text-red-600 text-center">
+                      There was an issue with the Google authentication. Please try again or use a traditional wallet connection.
+                    </p>
+                    <button
+                      onClick={() => {
+                        // Clear the error parameter
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.delete('error');
+                        const newSearch = newParams.toString();
+                        window.history.replaceState(null, '',
+                          window.location.pathname + (newSearch ? `?${newSearch}` : '')
+                        );
+                        // Force a re-render by updating the URL without the error parameter
+                        window.location.href = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+                      }}
+                      className="mt-2 px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </AnimateComponent>
+              )}
 
               {walletChain === WALLET_CHAINS.SOLANA && (
                 <AnimateComponent delay={200}>

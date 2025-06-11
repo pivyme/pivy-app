@@ -20,6 +20,7 @@ import bs58 from 'bs58';
 import { Buffer } from 'buffer';
 import axios from 'axios';
 import { useAuth } from '@/providers/AuthProvider';
+import { useZkLogin } from '@/providers/ZkLoginProvider';
 
 const SUI_DOMAIN = 'PIVY | Deterministic Meta Keys | Sui Network';
 const SOLANA_DOMAIN = 'PIVY | Deterministic Meta Keys | Solana Network';
@@ -192,14 +193,16 @@ function SuiGenerateMetaKey() {
                 value={pin}
                 onValueChange={setPin}
                 size='lg'
-                className='w-full'
+                className='mx-auto'
                 classNames={{
                   inputWrapper: "border-2 border-gray-200 hover:border-primary-300 focus-within:border-primary-500",
+                  wrapper: "w-full flex justify-center",
+                  errorMessage: "text-danger-600 text-md font-medium"
                 }}
               />
 
               {error && (
-                <div className="flex items-center gap-2 text-danger-500 text-sm">
+                <div className="flex items-center gap-2 text-danger-500 text-md">
                   <AlertCircleIcon className="w-4 h-4" />
                   {error}
                 </div>
@@ -423,9 +426,11 @@ function SolanaGenerateMetaKey() {
                 value={pin}
                 onValueChange={setPin}
                 size='lg'
-                className='w-full'
+                className='mx-auto'
                 classNames={{
                   inputWrapper: "border-2 border-gray-200 hover:border-primary-300 focus-within:border-primary-500",
+                  wrapper: "w-full flex justify-center",
+                  errorMessage: "text-danger-600 text-md font-medium"
                 }}
               />
 
@@ -492,15 +497,229 @@ function SolanaGenerateMetaKey() {
   );
 }
 
+function ZkLoginGenerateMetaKey() {
+  const { accessToken, saveMetaKeys, fetchMe, me } = useAuth();
+  const { deriveZkLoginMetaKeys } = useZkLogin();
+  const [isLoading, setIsLoading] = useState(false);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  // Determine if user already has meta keys
+  const hasExistingKeys = me?.metaViewPub && me?.metaSpendPub;
+  const isNewAccount = !hasExistingKeys;
+
+  const resetState = () => {
+    setError('');
+    setSuccess(false);
+  };
+
+  useEffect(() => {
+    resetState();
+  }, [pin]);
+
+  async function deriveMetaKeysWithPin(pinCode) {
+    // Use the centralized zkLogin meta key derivation
+    return await deriveZkLoginMetaKeys(pinCode);
+  }
+
+  async function handleSubmit() {
+    if (pin.length !== 4) {
+      setError('Please enter a 4-digit PIN');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError('');
+
+      const metaData = await deriveMetaKeysWithPin(pin);
+
+      if (hasExistingKeys) {
+        // Validate PIN by comparing generated keys with existing ones
+        if (metaData.metaViewPub !== me.metaViewPub || metaData.metaSpendPub !== me.metaSpendPub) {
+          setError('Incorrect PIN. Please try again.');
+          return;
+        }
+
+        // PIN is correct - just save to local storage
+        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
+        setSuccess(true);
+      } else {
+        // New account - register meta keys
+        console.log('Generated Meta Keys (zkLogin):', metaData);
+
+        // Store ALL private keys locally (spending key never goes to backend)
+        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
+
+        // Send only non-spending keys to backend for transaction indexing
+        const metaDataToSend = {
+          metaSpendPub: metaData.metaSpendPub,
+          metaViewPub: metaData.metaViewPub,
+          metaViewPriv: metaData.metaViewPriv,
+        };
+
+        const res = await axios({
+          method: 'POST',
+          url: `${import.meta.env.VITE_BACKEND_URL}/auth/register-meta-keys`,
+          data: metaDataToSend,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        console.log('Meta Keys Registered (zkLogin):', res.data);
+        await fetchMe();
+        setSuccess(true);
+      }
+    } catch (error) {
+      console.error('Error with meta keys (zkLogin):', error);
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const isPinComplete = pin.length === 4;
+
+  return (
+    <div className="flex flex-col items-center justify-center px-4 w-full min-h-[60vh] z-20 relative">
+      <AnimateComponent>
+        <div className="flex flex-col items-center gap-6 text-center z-10 relative p-8 max-w-md w-full nice-card">
+
+          {/* Header */}
+          <AnimateComponent delay={100}>
+            <div className="flex flex-col items-center gap-3">
+              {isNewAccount ? (
+                <div className="p-3 bg-primary-100 rounded-full">
+                  <KeyRoundIcon className="w-8 h-8 text-primary-600" />
+                </div>
+              ) : (
+                <div className="p-3 bg-success-100 rounded-full">
+                  <ShieldCheckIcon className="w-8 h-8 text-success-600" />
+                </div>
+              )}
+
+              <h1 className="text-2xl font-bold tracking-tight">
+                {isNewAccount ? 'Set Your PIN' : 'Enter Your PIN'}
+              </h1>
+              <p className="text-sm text-gray-500">zkLogin Account</p>
+            </div>
+          </AnimateComponent>
+
+          {/* Description */}
+          <AnimateComponent delay={200}>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {isNewAccount ? (
+                <>
+                  Create a secure 4-digit PIN to protect your meta keys.
+                  Your PIN is used with your Google account to generate deterministic keys.
+                </>
+              ) : (
+                <>
+                  Enter your PIN to unlock your meta keys and access your account.
+                </>
+              )}
+            </p>
+          </AnimateComponent>
+
+          {/* PIN Input */}
+          <AnimateComponent delay={300}>
+            <div className="flex flex-col items-center gap-3 w-full">
+              <InputOtp
+                length={4}
+                value={pin}
+                onValueChange={setPin}
+                size='lg'
+                className='mx-auto'
+                classNames={{
+                  inputWrapper: "border-2 border-gray-200 hover:border-primary-300 focus-within:border-primary-500",
+                  wrapper: "w-full flex justify-center",
+                  errorMessage: "text-danger-600 text-md font-medium"
+                }}
+              />
+
+              {error && (
+                <div className="flex items-center gap-2 text-danger-500 text-sm">
+                  <AlertCircleIcon className="w-4 h-4" />
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="flex items-center gap-2 text-success-500 text-sm">
+                  <CheckCircleIcon className="w-4 h-4" />
+                  {isNewAccount ? 'Meta keys created successfully!' : 'PIN verified successfully!'}
+                </div>
+              )}
+            </div>
+          </AnimateComponent>
+
+          {/* Action Button */}
+          <AnimateComponent delay={400}>
+            <Button
+              className="w-full font-semibold tracking-tight"
+              radius="full"
+              size="lg"
+              color="primary"
+              startContent={<LockIcon className="w-4 h-4" />}
+              onPress={handleSubmit}
+              isLoading={isLoading}
+              isDisabled={!isPinComplete || success}
+            >
+              {isLoading ? (
+                isNewAccount ? 'Creating Keys...' : 'Verifying PIN...'
+              ) : success ? (
+                'Complete!'
+              ) : (
+                isNewAccount ? 'Create Meta Keys' : 'Verify PIN'
+              )}
+            </Button>
+          </AnimateComponent>
+
+          {/* Security Note */}
+          {isNewAccount && (
+            <AnimateComponent delay={500}>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full">
+                <div className="flex items-start gap-3">
+                  <ShieldCheckIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-left">
+                    <h3 className="font-semibold text-blue-900 text-sm mb-1">
+                      zkLogin + Self-Custody
+                    </h3>
+                    <p className="text-blue-700 text-xs leading-relaxed">
+                      Your keys are derived from your Google account and PIN. Your spending keys never leave your device, ensuring complete self-custody of your funds.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </AnimateComponent>
+          )}
+
+        </div>
+      </AnimateComponent>
+    </div>
+  );
+}
+
 export default function GenerateMetaKey() {
   const { walletChain } = useAuth();
+  const { zkLoginUserAddress } = useZkLogin();
 
-  if (walletChain === 'SUI') {
+  // Check if user is using zkLogin
+  if (walletChain === 'SUI' && zkLoginUserAddress) {
+    return <ZkLoginGenerateMetaKey />;
+  } else if (walletChain === 'SUI') {
     return <SuiGenerateMetaKey />;
   } else if (walletChain === 'SOLANA') {
     return <SolanaGenerateMetaKey />;
   }
 
-  // Fallback to Sui if no chain is selected
+  // Fallback: check if there's zkLogin data available
+  if (zkLoginUserAddress) {
+    return <ZkLoginGenerateMetaKey />;
+  }
+
+  // Final fallback to Sui if no chain is selected
   return <SuiGenerateMetaKey />;
 }

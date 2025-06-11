@@ -1,3 +1,22 @@
+/*
+ * AuthProvider.jsx
+ * 
+ * This provider handles authentication for both Solana (traditional wallet signing) 
+ * and SUI (traditional wallet signing + zkLogin with Google OAuth).
+ * 
+ * For zkLogin to work properly, you need to set up:
+ * 1. VITE_GOOGLE_CLIENT_ID in your .env file
+ *    - Create a Google OAuth application at https://console.developers.google.com/
+ *    - Add your domain to authorized origins
+ *    - Add `${YOUR_DOMAIN}/auth/callback` to authorized redirect URIs
+ * 
+ * 2. Your Google Client ID must be whitelisted with Mysten Labs salt service
+ *    for production use. For development, the fallback salt generation will be used.
+ * 
+ * Example .env:
+ * VITE_GOOGLE_CLIENT_ID=123456789-abcdefghijklmnop.apps.googleusercontent.com
+ */
+
 import React, {
   createContext,
   useContext,
@@ -14,12 +33,16 @@ import { useLocalStorage } from "@uidotdev/usehooks";
 import { Buffer } from "buffer";
 import { useWallet as useSuiWallet } from "@suiet/wallet-kit";
 import { verifyPersonalMessageSignature } from '@mysten/sui/verify';
+import { useZkLogin } from '@/providers/ZkLoginProvider';
 import { isTestnet } from '@/config';
 
 const WALLET_CHAINS = {
   SOLANA: 'SOLANA',
-  SUI: 'SUI'
+  SUI: 'SUI',
+  SUI_ZKLOGIN: 'SUI_ZKLOGIN'
 }
+
+
 
 function createSolanaMessage(address, statement) {
   const header = new Header();
@@ -71,6 +94,10 @@ const AuthContext = createContext({
   metaViewPriv: null,
   hasMetaKeys: false,
   saveMetaKeys: () => { },
+  // ZkLogin specific
+  initZkLogin: () => { },
+  zkLoginUserAddress: null,
+  isZkLoginReady: false,
 });
 
 export function AuthProvider({ children }) {
@@ -92,6 +119,16 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const [forceChainFromNavbar, setForceChainFromNavbar] = useState(null);
+  
+  // Use zkLogin hook
+  const { 
+    zkLoginUserAddress, 
+    zkLoginJwt,
+    isZkLoginReady, 
+    initZkLogin, 
+    generateZkProof,
+    clearZkLoginData 
+  } = useZkLogin();
 
   // Effect to handle initial chain selection from URL query
   useEffect(() => {
@@ -120,6 +157,7 @@ export function AuthProvider({ children }) {
       case WALLET_CHAINS.SOLANA:
         return isTestnet ? 'DEVNET' : 'MAINNET';
       case WALLET_CHAINS.SUI:
+      case WALLET_CHAINS.SUI_ZKLOGIN:
         return isTestnet ? 'SUI_TESTNET' : 'SUI_MAINNET';
       default:
         return null;
@@ -145,21 +183,24 @@ export function AuthProvider({ children }) {
   const location = useLocation();
 
   // Determine if connected based on selected chain
-  const isConnected = effectiveWalletChain === WALLET_CHAINS.SOLANA ? solanaConnected : (effectiveWalletChain === WALLET_CHAINS.SUI ? suiConnected : false);
+  const isConnected = effectiveWalletChain === WALLET_CHAINS.SOLANA 
+    ? solanaConnected 
+    : ((effectiveWalletChain === WALLET_CHAINS.SUI || effectiveWalletChain === WALLET_CHAINS.SUI_ZKLOGIN) ? (zkLoginUserAddress || suiConnected) : false);
 
   // Get the connected address based on the selected chain
   const connectedAddress = useMemo(() => {
-    if (!isConnected) return null;
-
     switch (effectiveWalletChain) {
       case WALLET_CHAINS.SOLANA:
-        return solanaPublicKey?.toBase58() ?? null;
+        return isConnected ? solanaPublicKey?.toBase58() ?? null : null;
       case WALLET_CHAINS.SUI:
-        return suiAccount?.address ?? null;
+      case WALLET_CHAINS.SUI_ZKLOGIN:
+        // For SUI, prioritize zkLogin address if available
+        if (zkLoginUserAddress) return zkLoginUserAddress;
+        return isConnected ? suiAccount?.address ?? null : null;
       default:
         return null;
     }
-  }, [effectiveWalletChain, isConnected, solanaPublicKey, suiAccount]);
+  }, [effectiveWalletChain, isConnected, solanaPublicKey, suiAccount, zkLoginUserAddress]);
 
   const getWalletState = useCallback(() => {
     switch (effectiveWalletChain) {
@@ -169,9 +210,11 @@ export function AuthProvider({ children }) {
           address: solanaPublicKey?.toBase58()
         };
       case WALLET_CHAINS.SUI:
+      case WALLET_CHAINS.SUI_ZKLOGIN:
+        // For SUI, consider zkLogin as connected if we have user address
         return {
-          isConnected: suiConnected,
-          address: suiAccount?.address
+          isConnected: zkLoginUserAddress ? true : suiConnected,
+          address: zkLoginUserAddress || suiAccount?.address
         };
       default:
         return {
@@ -179,7 +222,7 @@ export function AuthProvider({ children }) {
           address: null
         };
     }
-  }, [effectiveWalletChain, solanaConnected, solanaPublicKey, suiConnected, suiAccount]);
+  }, [effectiveWalletChain, solanaConnected, solanaPublicKey, suiConnected, suiAccount, zkLoginUserAddress]);
 
   const handleSignInSolana = async () => {
     const messageData = createSolanaMessage(solanaPublicKey.toBase58(), "Welcome to Pivy!");
@@ -187,6 +230,7 @@ export function AuthProvider({ children }) {
 
     return {
       chain: WALLET_CHAINS.SOLANA,
+      walletChain: "SOLANA",
       publicKey: solanaPublicKey.toBase58(),
       payload: messageData.payload,
       header: messageData.header,
@@ -205,52 +249,99 @@ export function AuthProvider({ children }) {
 
     return {
       chain: WALLET_CHAINS.SUI,
+      walletChain: "SUI",
       publicKey: suiAccount.address,
       message: messageData.message, // Send the original message string
       signature: signature
     };
   };
 
-  const handleSignIn = useCallback(async () => {
-    const { isConnected, address } = getWalletState();
 
-    if (!isConnected || !address) {
-      navigate("/login", { state: { from: location.pathname } });
-      return;
-    }
 
+
+
+
+
+  const handleSignIn = useCallback(async (signInData = null) => {
+    console.log('🚀 Starting sign-in process...', { hasSignInData: !!signInData, walletChain: effectiveWalletChain });
+    
     try {
-      let signInData;
+      let authData;
 
-      switch (effectiveWalletChain) {
-        case WALLET_CHAINS.SOLANA:
-          signInData = await handleSignInSolana();
-          break;
-        case WALLET_CHAINS.SUI:
-          signInData = await handleSignInSui();
-          break;
-        default:
-          throw new Error("Invalid wallet chain");
+      // If we already have signInData (from zkLogin callback), use it directly
+      if (signInData) {
+        console.log('🔐 Using provided sign-in data (zkLogin)...');
+        authData = signInData;
+      } else {
+        // Handle traditional wallet sign-in
+        switch (effectiveWalletChain) {
+          case WALLET_CHAINS.SOLANA: {
+            console.log('🟡 Processing Solana sign-in...');
+            const { isConnected: solanaIsConnected, address: solanaAddress } = getWalletState();
+            if (!solanaIsConnected || !solanaAddress) {
+              console.log('❌ Solana wallet not connected');
+              return;
+            }
+            authData = await handleSignInSolana();
+            break;
+          }
+          case WALLET_CHAINS.SUI:
+          case WALLET_CHAINS.SUI_ZKLOGIN: {
+            if (zkLoginUserAddress && isZkLoginReady) {
+              console.log('🔵 Using existing zkLogin data...');
+              // Use existing zkLogin data and update wallet chain to SUI_ZKLOGIN
+              setWalletChainStorage(WALLET_CHAINS.SUI_ZKLOGIN);
+              authData = {
+                walletChain: 'SUI_ZKLOGIN',
+                jwt: zkLoginJwt,
+                walletAddress: zkLoginUserAddress
+              };
+            } else {
+              console.log('🔵 Processing traditional SUI wallet sign-in...');
+              const { isConnected: suiIsConnected, address: suiAddress } = getWalletState();
+              if (!suiIsConnected || !suiAddress) {
+                console.log('❌ SUI wallet not connected');
+                return;
+              }
+              // Fallback to traditional SUI wallet signing
+              authData = await handleSignInSui();
+            }
+            break;
+          }
+          default:
+            throw new Error("Invalid wallet chain");
+        }
       }
 
-      signInData.walletChain = effectiveWalletChain;
-
-      console.log('signInData', signInData);
-      console.log('walletChain', effectiveWalletChain);
+      console.log('Final auth data:', authData);
 
       const response = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/auth/login`,
-        signInData
+        authData
       );
 
       setAccessToken(response.data);
+      
+      // Clear any error parameters from URL on successful sign-in
+      const currentUrl = new URL(window.location);
+      if (currentUrl.searchParams.has('error')) {
+        currentUrl.searchParams.delete('error');
+        window.history.replaceState(null, '', currentUrl.toString());
+      }
+      
       const from = location.state?.from || "/";
       navigate(from, { replace: true });
     } catch (error) {
       console.error("Sign in error:", error);
+      // Don't add error parameter here to avoid the error message appearing
+      // The zkLogin callback component will handle error redirects with parameters
+      if (signInData && signInData.walletChain === 'SUI_ZKLOGIN') {
+        // This was a zkLogin sign-in failure, redirect will be handled by callback component
+        return;
+      }
       navigate("/login");
     }
-  }, [effectiveWalletChain, getWalletState, signSolanaMessage, signSuiPersonalMessage, navigate, location]);
+  }, [effectiveWalletChain, getWalletState, handleSignInSolana, handleSignInSui, navigate, location, zkLoginUserAddress, isZkLoginReady]);
 
   const handleDisconnect = useCallback(() => {
     switch (effectiveWalletChain) {
@@ -258,6 +349,7 @@ export function AuthProvider({ children }) {
         disconnectSolana();
         break;
       case WALLET_CHAINS.SUI:
+      case WALLET_CHAINS.SUI_ZKLOGIN:
         disconnectSui();
         break;
     }
@@ -269,10 +361,12 @@ export function AuthProvider({ children }) {
     setWalletChain(null);
     setMetaSpendPriv(null);
     setMetaViewPriv(null);
+    // Clear zkLogin data
+    clearZkLoginData();
     handleDisconnect();
     setMe(null);
     navigate("/login");
-  }, [setAccessToken, setLastConnectedAddress, handleDisconnect, navigate]);
+  }, [setAccessToken, setLastConnectedAddress, handleDisconnect, navigate, clearZkLoginData]);
 
   const fetchMe = useCallback(async () => {
     if (!accessToken) {
@@ -305,13 +399,14 @@ export function AuthProvider({ children }) {
 
   // Effect to handle wallet connections and maintain chain selection
   useEffect(() => {
-    if (getWalletState().isConnected && getWalletState().address) {
-      if (lastConnectedAddress && lastConnectedAddress !== getWalletState().address) {
+    const { isConnected, address } = getWalletState();
+    if (isConnected && address) {
+      if (lastConnectedAddress && lastConnectedAddress !== address) {
         signOut();
       }
-      setLastConnectedAddress(getWalletState().address);
+      setLastConnectedAddress(address);
     }
-  }, [getWalletState, lastConnectedAddress]);
+  }, [getWalletState, lastConnectedAddress, signOut]);
 
   // Function to save meta keys
   const saveMetaKeys = useCallback((spendPriv, viewPriv) => {
@@ -349,6 +444,12 @@ export function AuthProvider({ children }) {
         hasMetaKeys,
         metaSpendPriv,
         metaViewPriv,
+        // ZkLogin specific
+        initZkLogin,
+        zkLoginUserAddress,
+        zkLoginJwt,
+        isZkLoginReady,
+        generateZkProof,
       }}
     >
       {children}
@@ -367,11 +468,13 @@ export function useAuth() {
 export function ProtectedRoute({ children }) {
   const { connected: solanaConnected } = useWallet();
   const { connected: suiConnected } = useSuiWallet();
-  const { isSignedIn, isLoading, walletChain } = useAuth();
+  const { isSignedIn, isLoading, walletChain, zkLoginUserAddress } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isConnected = walletChain === WALLET_CHAINS.SOLANA ? solanaConnected : suiConnected;
+  const isConnected = walletChain === WALLET_CHAINS.SOLANA 
+    ? solanaConnected 
+    : ((walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN) ? (zkLoginUserAddress || suiConnected) : false);
 
   useEffect(() => {
     if (!isLoading && (!isConnected || !isSignedIn)) {
