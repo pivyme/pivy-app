@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import ColorCard from '../elements/ColorCard'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
+import { useZkLogin } from '@/providers/ZkLoginProvider'
 import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '@heroui/react'
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction as SolanaTransaction } from '@solana/web3.js'
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
@@ -14,6 +15,9 @@ import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import { SuiClient } from '@mysten/sui/client';
 import { isValidSuiAddress} from '@mysten/sui/utils';
 import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
+import { genAddressSeed, getZkLoginSignature } from '@mysten/sui/zklogin';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { jwtDecode } from 'jwt-decode';
 
 import BN from 'bn.js';
 import { CHAINS, isTestnet } from '@/config'
@@ -39,6 +43,14 @@ const validateSuiAddress = (address) => {
 
 function TokenCard({ token, index }) {
   const { accessToken, me, walletChain, walletChainId, metaSpendPriv, metaViewPriv } = useAuth()
+  const { 
+    generateZkProof, 
+    zkLoginUserAddress, 
+    zkLoginJwt,
+    zkLoginUserSalt,
+    zkLoginEphemeralKeyPair,
+    zkLoginMaxEpoch 
+  } = useZkLogin()
   const [isOpen, setIsOpen] = useState(false)
   const { connection } = useConnection()
   const walletInstance = useWallet()
@@ -87,7 +99,7 @@ function TokenCard({ token, index }) {
     }
 
     // Validate SUI address
-    if (walletChain === 'SUI') {
+    if (walletChain === 'SUI' || walletChain === 'SUI_ZKLOGIN') {
       if (!validateSuiAddress(address)) {
         setError('Invalid SUI address')
         return
@@ -222,9 +234,11 @@ function TokenCard({ token, index }) {
         setIsOpen(false); // Close the popover
       }
 
-
-      if (walletChain === 'SUI') {
+      if (walletChain === 'SUI' || walletChain === 'SUI_ZKLOGIN') {
         console.log(`Sending ${amount} ${token.symbol} to ${address}`)
+        console.log('Wallet Chain:', walletChain)
+        console.log('zkLogin User Address:', zkLoginUserAddress)
+        console.log('SUI Wallet Account:', suiWallet?.account?.address)
 
         const chain = isTestnet ? CHAINS.SUI_TESTNET : CHAINS.SUI_MAINNET
         const stealthProgramId = chain.stealthProgramId
@@ -272,8 +286,34 @@ function TokenCard({ token, index }) {
 
           try {
             // Get fresh gas coins for each transaction
+            // Determine if we're using zkLogin (either by wallet chain or by having zkLoginUserAddress)
+            const isUsingZkLogin = walletChain === 'SUI_ZKLOGIN' || zkLoginUserAddress;
+            
+            console.log('Gas payment debugging:', {
+              walletChain,
+              zkLoginUserAddress,
+              suiWalletAddress: suiWallet?.account?.address,
+              isUsingZkLogin
+            });
+            
+            const gasOwnerAddress = isUsingZkLogin
+              ? zkLoginUserAddress 
+              : (suiWallet?.account?.address);
+            
+            if (!gasOwnerAddress) {
+              console.error('Gas owner address resolution failed:', {
+                walletChain,
+                zkLoginUserAddress,
+                suiWalletAddress: suiWallet?.account?.address,
+                isUsingZkLogin
+              });
+              throw new Error(`Gas owner address not available for wallet type: ${walletChain}. zkLogin: ${!!zkLoginUserAddress}, suiWallet: ${!!suiWallet?.account?.address}`);
+            }
+            
+            console.log('Using gas owner address:', gasOwnerAddress);
+            
             const { data: gasCoins } = await suiClient.getCoins({
-              owner: suiWallet.account.address,
+              owner: gasOwnerAddress,
               coinType: '0x2::sui::SUI'
             });
 
@@ -409,7 +449,7 @@ function TokenCard({ token, index }) {
             console.log('Creating sponsored transaction...');
             const sponsoredTx = SuiTransaction.fromKind(txKindBytes);
             sponsoredTx.setSender(pick.address);
-            sponsoredTx.setGasOwner(suiWallet.account.address);
+            sponsoredTx.setGasOwner(gasOwnerAddress);
             sponsoredTx.setGasPayment([{
               objectId: gasCoin.coinObjectId,
               version: gasCoin.version,
@@ -418,39 +458,201 @@ function TokenCard({ token, index }) {
 
             // Build final transaction bytes
             console.log('Building final transaction...');
-            const finalTxBytes = await sponsoredTx.build({ client: suiClient });
+            
+            if (isUsingZkLogin) {
+              // zkLogin signing flow
+              console.log('Using zkLogin signing flow...');
+              
+              // Reconstruct ephemeral keypair first
+              if (!zkLoginEphemeralKeyPair || !zkLoginMaxEpoch || !zkLoginJwt || !zkLoginUserSalt) {
+                throw new Error('Missing zkLogin data for transaction signing');
+              }
+              
+              console.log('Reconstructing ephemeral keypair...');
+              const ephemeralKeyPair = Ed25519Keypair.fromSecretKey(zkLoginEphemeralKeyPair.privateKey);
+              
+              // Create a new transaction that includes stealth signature
+              const zkLoginTx = new SuiTransaction();
+              
+              // Re-add all the transaction logic for this specific transaction
+              // Find coins that sum up to the pick amount
+              let remainingAmount = BigInt(Math.floor(pick.amount * (10 ** token.decimals)));
+              const coinsToUse = [];
 
-            // Sign and execute immediately
-            console.log('Signing transaction...');
-            const signatures = [];
+              for (const coin of coins) {
+                if (remainingAmount <= 0n) break;
+                coinsToUse.push(coin);
+                remainingAmount -= BigInt(coin.balance);
+              }
 
-            // Get stealth signature
-            const stealthSignature = await stealthKP.signTransaction(finalTxBytes);
-            signatures.push(stealthSignature.signature);
+              let finalCoin;
 
-            // Get sponsor signature (user wallet)
-            const userSignatureResult = await suiWallet.signTransaction({
-              transaction: sponsoredTx
-            });
-            signatures.push(userSignatureResult.signature);
+              if (coinsToUse.length === 1 && remainingAmount === 0n) {
+                // Perfect match - use the coin directly
+                finalCoin = zkLoginTx.object(coinsToUse[0].coinObjectId);
+              } else {
+                // Need to merge or split coins
+                if (coinsToUse.length > 1) {
+                  // Merge multiple coins into the first one
+                  const primaryCoin = zkLoginTx.object(coinsToUse[0].coinObjectId);
+                  const otherCoins = coinsToUse.slice(1).map(coin => zkLoginTx.object(coin.coinObjectId));
+                  zkLoginTx.mergeCoins(primaryCoin, otherCoins);
+                  finalCoin = primaryCoin;
+                } else {
+                  finalCoin = zkLoginTx.object(coinsToUse[0].coinObjectId);
+                }
 
-            // Execute transaction
-            console.log('Executing transaction...');
-            const txResponse = await suiClient.executeTransactionBlock({
-              transactionBlock: finalTxBytes,
-              signature: signatures,
-              requestType: 'WaitForLocalExecution',
-            });
+                // If we have more than needed, split the coin
+                if (remainingAmount < 0n) {
+                  const exactAmount = BigInt(Math.floor(pick.amount * (10 ** token.decimals)));
+                  const [splitCoin] = zkLoginTx.splitCoins(finalCoin, [zkLoginTx.pure.u64(exactAmount)]);
+                  finalCoin = splitCoin;
+                }
+              }
 
-            console.log(`Transaction for pick ${i + 1} executed:`, txResponse);
-            txResults.push({
-              index: i + 1,
-              pick,
-              digest: txResponse.digest,
-              success: true,
-              response: txResponse
-            });
-            txDigests.push(txResponse.digest);
+              // Transfer the coins directly
+              zkLoginTx.transferObjects([finalCoin], zkLoginTx.pure.address(address));
+
+              // Call announce_withdraw
+              zkLoginTx.moveCall({
+                target: `${stealthProgramId}::pivy_stealth::announce_withdraw`,
+                typeArguments: [pick.mint],
+                arguments: [
+                  zkLoginTx.pure.u64(BigInt(Math.floor(pick.amount * (10 ** token.decimals)))),
+                  zkLoginTx.pure.address(address),
+                ],
+              });
+              
+              // Set transaction parameters
+              zkLoginTx.setSender(pick.address); // Stealth address is the sender
+              zkLoginTx.setGasOwner(zkLoginUserAddress); // zkLogin user pays gas
+              zkLoginTx.setGasPayment([{
+                objectId: gasCoin.coinObjectId,
+                version: gasCoin.version,
+                digest: gasCoin.digest
+              }]);
+              
+              // Sign with both stealth keypair and zkLogin
+              console.log('Signing with stealth keypair...');
+              const stealthSignedTx = await zkLoginTx.sign({
+                client: suiClient,
+                signer: stealthKP,
+              });
+              
+              // Now sign with zkLogin ephemeral keypair for gas sponsoring
+              console.log('Signing with zkLogin ephemeral keypair...');
+              const ephemeralSignedTx = await zkLoginTx.sign({
+                client: suiClient,
+                signer: ephemeralKeyPair,
+              });
+              
+              console.log('Getting ZK proof...');
+              const partialZkLoginSignature = await generateZkProof();
+              
+              // Decode JWT to get sub and aud
+              console.log('Decoding JWT...');
+              const decodedJwt = jwtDecode(zkLoginJwt);
+              
+              // Generate address seed
+              console.log('Generating address seed...');
+              console.log('Raw zkLoginUserSalt:', zkLoginUserSalt);
+              
+              // Convert base64 salt to BigInt
+              let saltBigInt;
+              try {
+                // If salt is base64 encoded, decode it first
+                const saltBytes = atob(zkLoginUserSalt);
+                const saltArray = new Uint8Array(saltBytes.length);
+                for (let i = 0; i < saltBytes.length; i++) {
+                  saltArray[i] = saltBytes.charCodeAt(i);
+                }
+                // Convert bytes to hex string, then to BigInt
+                const saltHex = Array.from(saltArray)
+                  .map(b => b.toString(16).padStart(2, '0'))
+                  .join('');
+                saltBigInt = BigInt('0x' + saltHex);
+                console.log('Converted salt to BigInt:', saltBigInt.toString());
+              } catch (error) {
+                console.error('Error converting salt:', error);
+                // Fallback: try to use salt directly if it's already a number
+                saltBigInt = BigInt(zkLoginUserSalt);
+              }
+              
+              const addressSeed = genAddressSeed(
+                saltBigInt,
+                'sub',
+                decodedJwt.sub,
+                decodedJwt.aud,
+              ).toString();
+              
+              // Create zkLogin signature for gas sponsoring
+              console.log('Creating zkLogin signature...');
+              const zkLoginSignature = getZkLoginSignature({
+                inputs: {
+                  ...partialZkLoginSignature,
+                  addressSeed,
+                },
+                maxEpoch: zkLoginMaxEpoch,
+                userSignature: ephemeralSignedTx.signature,
+              });
+              
+              // Execute transaction with both signatures
+              console.log('Executing zkLogin transaction...');
+              const zkLoginTxResponse = await suiClient.executeTransactionBlock({
+                transactionBlock: stealthSignedTx.bytes,
+                signature: [stealthSignedTx.signature, zkLoginSignature],
+                requestType: 'WaitForLocalExecution',
+              });
+              
+              console.log(`Transaction for pick ${i + 1} executed:`, zkLoginTxResponse);
+              txResults.push({
+                index: i + 1,
+                pick,
+                digest: zkLoginTxResponse.digest,
+                success: true,
+                response: zkLoginTxResponse
+              });
+              txDigests.push(zkLoginTxResponse.digest);
+            } else {
+              // Regular SUI wallet signing flow  
+              const finalTxBytes = await sponsoredTx.build({ client: suiClient });
+
+              // Sign and execute immediately
+              console.log('Signing transaction...');
+              const signatures = [];
+
+              // Get stealth signature
+              const stealthSignature = await stealthKP.signTransaction(finalTxBytes);
+              signatures.push(stealthSignature.signature);
+
+              // Regular SUI wallet signature
+              if (!suiWallet?.signTransaction) {
+                throw new Error('SUI wallet not available for signing');
+              }
+              
+              const userSignatureResult = await suiWallet.signTransaction({
+                transaction: sponsoredTx
+              });
+              signatures.push(userSignatureResult.signature);
+
+              // Execute transaction
+              console.log('Executing transaction...');
+              const txResponse = await suiClient.executeTransactionBlock({
+                transactionBlock: finalTxBytes,
+                signature: signatures,
+                requestType: 'WaitForLocalExecution',
+              });
+
+              console.log(`Transaction for pick ${i + 1} executed:`, txResponse);
+              txResults.push({
+                index: i + 1,
+                pick,
+                digest: txResponse.digest,
+                success: true,
+                response: txResponse
+              });
+              txDigests.push(txResponse.digest);
+            }
 
             // Wait for transaction to be fully confirmed before proceeding
             console.log('Waiting for transaction confirmation...');
@@ -482,6 +684,7 @@ function TokenCard({ token, index }) {
           if (result.success) {
             console.log(`✅ TX${result.index}: ${result.pick.amount} ${token.symbol} from ${result.pick.address} - ${result.digest}`);
           } else {
+            console.log(result)
             console.log(`❌ TX${result.index}: ${result.pick.amount} ${token.symbol} from ${result.pick.address} - ERROR: ${result.error}`);
           }
         });
@@ -658,7 +861,13 @@ function TokenCard({ token, index }) {
                         setAddress(val);
                         setError(null);
                       }}
-                      placeholder={walletChain === "SOLANA" ? "Solana wallet address" : "SUI wallet address"}
+                      placeholder={
+                        walletChain === "SOLANA" 
+                          ? "Solana wallet address" 
+                          : walletChain === "SUI_ZKLOGIN"
+                            ? "SUI zkLogin wallet address"
+                            : "SUI wallet address"
+                      }
                       classNames={{
                         input: "bg-white",
                         inputWrapper: "border border-gray-100 hover:border-gray-200 bg-white"

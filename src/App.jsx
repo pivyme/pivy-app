@@ -10,6 +10,7 @@ import AppLinkPage from "./pages/app/AppLinkPage";
 import ReceivePage from "./pages/ReceivePage";
 import ReceiveLayout from "./layouts/ReceiveLayout";
 import IndexPage from "./pages/IndexPage";
+import ZkLoginCallback from "./components/auth/ZkLoginCallback";
 
 // Helper function to check if we're on a subdomain
 const isSubdomain = () => {
@@ -81,6 +82,10 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <LoginPage />,
+      },
+      {
+        path: "auth/callback",
+        element: <ZkLoginCallback />,
       }
     ],
   },

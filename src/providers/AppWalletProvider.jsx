@@ -12,6 +12,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { AuthProvider } from "./AuthProvider";
+import { ZkLoginProvider } from "./ZkLoginProvider";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
@@ -42,7 +43,9 @@ export default function AppWalletProvider({ children }) {
       <WalletProvider wallets={wallets} autoConnect>
         <SuiWalletProvider>
           <WalletModalProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <ZkLoginProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </ZkLoginProvider>
           </WalletModalProvider>
         </SuiWalletProvider>
       </WalletProvider>

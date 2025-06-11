@@ -8,6 +8,7 @@ import {
 } from "@solana/wallet-adapter-react-ui";
 import React, { useEffect } from "react";
 import { useAuth } from "../../providers/AuthProvider";
+import { useZkLogin } from "../../providers/ZkLoginProvider";
 import { Popover, PopoverTrigger, PopoverContent, Select, SelectItem } from "@heroui/react";
 import { LogOutIcon, ChevronDownIcon } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -16,6 +17,7 @@ import { shortenAddress } from "@/utils/misc";
 import AnimateComponent from "@/components/elements/AnimateComponent";
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import { WALLET_CHAINS } from '@/providers/AuthProvider';
+import { jwtDecode } from 'jwt-decode';
 
 const CHAIN_DETAILS = {
   [WALLET_CHAINS.SOLANA]: {
@@ -130,8 +132,27 @@ const ChainSelector = () => {
 };
 
 const WalletButton = () => {
-  const { isConnected, connectedAddress, signOut, isSignedIn } = useAuth();
+  const { isConnected, connectedAddress, signOut, isSignedIn, walletChain } = useAuth();
+  const { zkLoginJwt, zkLoginUserAddress } = useZkLogin();
   const { setVisible } = useWalletModal();
+
+  // Check if user is using zkLogin
+  const isZkLoginUser = walletChain === WALLET_CHAINS.SUI && zkLoginUserAddress;
+  
+  // Decode Google profile info from JWT for zkLogin users
+  let googleProfile = null;
+  if (isZkLoginUser && zkLoginJwt) {
+    try {
+      const decoded = jwtDecode(zkLoginJwt);
+      googleProfile = {
+        email: decoded.email,
+        picture: decoded.picture,
+        name: decoded.name
+      };
+    } catch (error) {
+      console.error('Error decoding zkLogin JWT:', error);
+    }
+  }
 
   return (
     <Popover placement="bottom">
@@ -141,15 +162,44 @@ const WalletButton = () => {
           size="lg"
           variant="light"
         >
-          <div className="flex flex-row items-center gap-2">
-            <GradientProfilePicture
-              seed={connectedAddress ?? ""}
-              className="size-8 border-2 border-black"
-            />
-            <p className="font-medium tracking-tight">
-              {shortenAddress(connectedAddress ?? "")}
-            </p>
-          </div>
+          {isZkLoginUser && googleProfile ? (
+            // zkLogin user display with Google profile
+            <div className="flex flex-row items-center gap-1">
+              <img
+                src={googleProfile.picture}
+                alt="Google Profile"
+                className="size-8 rounded-full border-2 border-gray-200"
+                onError={(e) => {
+                  // Fallback to gradient picture if Google image fails
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+              <GradientProfilePicture
+                seed={connectedAddress ?? ""}
+                className="size-8 border-2 border-black hidden"
+              />
+              <div className="flex flex-col items-start">
+                <p className="font-medium tracking-tight text-sm leading-tight">
+                  {googleProfile.email}
+                </p>
+                <p className="text-xs text-gray-500 leading-tight">
+                  {shortenAddress(connectedAddress ?? "")}
+                </p>
+              </div>
+            </div>
+          ) : (
+            // Traditional wallet display
+            <div className="flex flex-row items-center gap-2">
+              <GradientProfilePicture
+                seed={connectedAddress ?? ""}
+                className="size-8 border-2 border-black"
+              />
+              <p className="font-medium tracking-tight">
+                {shortenAddress(connectedAddress ?? "")}
+              </p>
+            </div>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-2">
