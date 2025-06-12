@@ -865,7 +865,7 @@ function TokenCard({ token, index }) {
                         walletChain === "SOLANA" 
                           ? "Solana wallet address" 
                           : walletChain === "SUI_ZKLOGIN"
-                            ? "SUI zkLogin wallet address"
+                            ? "SUI wallet address"
                             : "SUI wallet address"
                       }
                       classNames={{
