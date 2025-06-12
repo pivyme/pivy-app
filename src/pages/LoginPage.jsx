@@ -89,6 +89,9 @@ export default function LoginPage() {
   const { connected: suiConnected } = useSuiWallet();
   const [searchParams] = useSearchParams();
 
+  // For display purposes, treat SUI_ZKLOGIN as SUI
+  const displayChain = walletChain === WALLET_CHAINS.SUI_ZKLOGIN ? WALLET_CHAINS.SUI : walletChain;
+
   const isConnected = walletChain === WALLET_CHAINS.SOLANA
     ? solanaConnected
     : (zkLoginUserAddress || suiConnected);
@@ -114,7 +117,7 @@ export default function LoginPage() {
   }
 
   let topPadding = "pt-[8rem]";
-  if (walletChain === "SUI") {
+  if (displayChain === "SUI") {
     topPadding = "pt-[8rem]";
   }
 
@@ -141,9 +144,9 @@ export default function LoginPage() {
                 </p>
                 <div className='mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 border border-primary-100'>
                   <span className='text-xs font-medium text-primary-700'>
-                    {walletChain === "SOLANA"
+                    {displayChain === "SOLANA"
                       ? "✨ The First Ever Stealth Address Implementation on Solana"
-                      : walletChain === "SUI"
+                      : displayChain === "SUI"
                         ? "✨ The First Ever Stealth Address Implementation on SUI"
                         : "✨ Multi-Chain Stealth Addresses"
                     }
@@ -191,7 +194,7 @@ export default function LoginPage() {
                 </AnimateComponent>
               )}
 
-              {walletChain === WALLET_CHAINS.SOLANA && (
+              {displayChain === WALLET_CHAINS.SOLANA && (
                 <AnimateComponent delay={200}>
                   <div className='flex flex-col gap-2'>
                     <div className="mt-4 px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
@@ -224,7 +227,7 @@ export default function LoginPage() {
                 </AnimateComponent>
               )}
 
-              {(walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN) && (
+              {displayChain === WALLET_CHAINS.SUI && (
                 <AnimateComponent delay={200}>
                   <div className="mt-4 space-y-3">
                     <div className="px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">
@@ -408,6 +411,9 @@ const BadgePill = () => {
 
 const KnowMoreCard = () => {
   const { walletChain } = useAuth();
+  
+  // For display purposes, treat SUI_ZKLOGIN as SUI
+  const displayChain = walletChain === WALLET_CHAINS.SUI_ZKLOGIN ? WALLET_CHAINS.SUI : walletChain;
 
   const CHAIN_CONTENT = {
     SOLANA: {
@@ -446,7 +452,7 @@ const KnowMoreCard = () => {
     }
   };
 
-  const chainContent = CHAIN_CONTENT[walletChain];
+  const chainContent = CHAIN_CONTENT[displayChain];
   if (!chainContent) return null;
 
   return (
@@ -454,7 +460,7 @@ const KnowMoreCard = () => {
       <AnimateComponent delay={100}>
         <div className='text-center mb-4'>
           <h3 className='text-xl font-bold'>Discover More</h3>
-          <p className='text-sm text-gray-500'>Watch these videos about PIVY on {walletChain === "SOLANA" ? "Solana" : "SUI"}</p>
+          <p className='text-sm text-gray-500'>Watch these videos about PIVY on {displayChain === "SOLANA" ? "Solana" : "SUI"}</p>
         </div>
       </AnimateComponent>
 
