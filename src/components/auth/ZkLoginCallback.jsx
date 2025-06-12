@@ -13,10 +13,11 @@ export default function ZkLoginCallback() {
   const hasProcessed = useRef(false);
   const [currentStep, setCurrentStep] = useState('processing');
   const processingRef = useRef(false);
+  const authInProgress = useRef(false);
 
   useEffect(() => {
     // Prevent double execution in React StrictMode and concurrent processing
-    if (hasProcessed.current || processingRef.current) {
+    if (hasProcessed.current || processingRef.current || authInProgress.current) {
       console.log('ZkLogin callback already processed or processing, skipping...');
       return;
     }
@@ -25,6 +26,7 @@ export default function ZkLoginCallback() {
       try {
         // Mark as processing immediately
         processingRef.current = true;
+        authInProgress.current = true;
         
         // Step 1: Processing authentication and wallet
         setCurrentStep('processing');
@@ -77,8 +79,9 @@ export default function ZkLoginCallback() {
           
           if (existingToken && existingAddress) {
             console.log('🔄 Found existing zkLogin session, redirecting to home...');
-            navigate('/', { replace: true });
             hasProcessed.current = true;
+            authInProgress.current = false;
+            navigate('/', { replace: true });
             return;
           }
         }
@@ -107,6 +110,13 @@ export default function ZkLoginCallback() {
         const zkLoginData = await handleZkLoginCallback(idToken);
         // Fix the walletChain field to match backend expectations
         zkLoginData.walletChain = 'SUI_ZKLOGIN';
+        
+        // Important: Don't proceed if already processed by another instance
+        if (hasProcessed.current) {
+          console.log('⚠️ Already processed by another instance, aborting...');
+          return;
+        }
+        
         await signIn(zkLoginData);
         
         // Step 3: Complete
@@ -131,6 +141,7 @@ export default function ZkLoginCallback() {
         }, 2000);
       } finally {
         processingRef.current = false;
+        authInProgress.current = false;
       }
     };
 

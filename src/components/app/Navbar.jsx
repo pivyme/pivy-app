@@ -29,7 +29,7 @@ const CHAIN_DETAILS = {
     name: 'Sui',
     logo: '/chains/sui.svg',
     color: '#6FBCF0',
-  }
+  },
 };
 
 export default function Navbar() {
@@ -93,6 +93,10 @@ const ChainSelector = () => {
   const { connected: solanaConnected, disconnect: disconnectSolana } = useWallet();
   const { connected: suiConnected, disconnect: disconnectSui } = useSuiWallet();
 
+  // For display purposes, treat SUI_ZKLOGIN as SUI
+  const displayChain = walletChain === WALLET_CHAINS.SUI_ZKLOGIN ? WALLET_CHAINS.SUI : walletChain;
+  const chainDetails = CHAIN_DETAILS[displayChain];
+
   const handleChainSwitch = async (newChain) => {
     if (!newChain) return; // Prevent undefined chain selection
     
@@ -100,7 +104,7 @@ const ChainSelector = () => {
       // Disconnect current wallet if connected
       if (solanaConnected && walletChain === WALLET_CHAINS.SOLANA) {
         await disconnectSolana();
-      } else if (suiConnected && walletChain === WALLET_CHAINS.SUI) {
+      } else if (suiConnected && (walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN)) {
         await disconnectSui();
       }
       // Force chain change from navbar
@@ -110,10 +114,10 @@ const ChainSelector = () => {
 
   return (
     <Select
-      selectedKeys={[walletChain]}
+      selectedKeys={[displayChain]}
       onChange={(e) => handleChainSwitch(e.target.value)}
       className="w-[8rem]"
-      startContent={<img src={CHAIN_DETAILS[walletChain].logo} alt={CHAIN_DETAILS[walletChain].name} className="w-4 h-4" />}
+      startContent={chainDetails ? <img src={chainDetails.logo} alt={chainDetails.name} className="w-4 h-4" /> : null}
     >
       {Object.entries(CHAIN_DETAILS).map(([chain, details]) => (
         <SelectItem
@@ -137,7 +141,7 @@ const WalletButton = () => {
   const { setVisible } = useWalletModal();
 
   // Check if user is using zkLogin
-  const isZkLoginUser = walletChain === WALLET_CHAINS.SUI && zkLoginUserAddress;
+  const isZkLoginUser = (walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN) && zkLoginUserAddress;
   
   // Decode Google profile info from JWT for zkLogin users
   let googleProfile = null;

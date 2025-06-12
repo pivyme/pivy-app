@@ -210,8 +210,12 @@ export function AuthProvider({ children }) {
           address: solanaPublicKey?.toBase58()
         };
       case WALLET_CHAINS.SUI:
+        return {
+          isConnected: suiConnected,
+          address: suiAccount?.address
+        };
       case WALLET_CHAINS.SUI_ZKLOGIN:
-        // For SUI, consider zkLogin as connected if we have user address
+        // For zkLogin, prioritize zkLogin state
         return {
           isConnected: zkLoginUserAddress ? true : suiConnected,
           address: zkLoginUserAddress || suiAccount?.address
@@ -272,6 +276,11 @@ export function AuthProvider({ children }) {
       if (signInData) {
         console.log('🔐 Using provided sign-in data (zkLogin)...');
         authData = signInData;
+        // For zkLogin, immediately update the wallet chain and address to prevent race conditions
+        if (authData.walletChain === 'SUI_ZKLOGIN') {
+          setWalletChainStorage(WALLET_CHAINS.SUI_ZKLOGIN);
+          setLastConnectedAddress(authData.walletAddress);
+        }
       } else {
         // Handle traditional wallet sign-in
         switch (effectiveWalletChain) {
@@ -291,6 +300,7 @@ export function AuthProvider({ children }) {
               console.log('🔵 Using existing zkLogin data...');
               // Use existing zkLogin data and update wallet chain to SUI_ZKLOGIN
               setWalletChainStorage(WALLET_CHAINS.SUI_ZKLOGIN);
+              setLastConnectedAddress(zkLoginUserAddress);
               authData = {
                 walletChain: 'SUI_ZKLOGIN',
                 jwt: zkLoginJwt,
@@ -341,7 +351,7 @@ export function AuthProvider({ children }) {
       }
       navigate("/login");
     }
-  }, [effectiveWalletChain, getWalletState, handleSignInSolana, handleSignInSui, navigate, location, zkLoginUserAddress, isZkLoginReady]);
+  }, [effectiveWalletChain, getWalletState, handleSignInSolana, handleSignInSui, navigate, location, zkLoginUserAddress, isZkLoginReady, setWalletChainStorage, setLastConnectedAddress, zkLoginJwt]);
 
   const handleDisconnect = useCallback(() => {
     switch (effectiveWalletChain) {
@@ -401,12 +411,23 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const { isConnected, address } = getWalletState();
     if (isConnected && address) {
-      if (lastConnectedAddress && lastConnectedAddress !== address) {
+      // Only trigger signOut if we have a different address AND we're not in a zkLogin flow
+      // zkLogin addresses might be different from traditional wallet addresses
+      if (lastConnectedAddress && 
+          lastConnectedAddress !== address && 
+          effectiveWalletChain !== WALLET_CHAINS.SUI_ZKLOGIN &&
+          !zkLoginUserAddress) {
+        console.log('🔄 Address changed, signing out...', { 
+          lastConnected: lastConnectedAddress, 
+          current: address,
+          walletChain: effectiveWalletChain 
+        });
         signOut();
+        return;
       }
       setLastConnectedAddress(address);
     }
-  }, [getWalletState, lastConnectedAddress, signOut]);
+  }, [getWalletState, lastConnectedAddress, signOut, effectiveWalletChain, zkLoginUserAddress, setLastConnectedAddress]);
 
   // Function to save meta keys
   const saveMetaKeys = useCallback((spendPriv, viewPriv) => {
@@ -424,6 +445,20 @@ export function AuthProvider({ children }) {
       metaViewPriv
     );
   }, [me, metaSpendPriv, metaViewPriv]);
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('🔍 Auth state changed:', {
+      isSignedIn: !!accessToken,
+      walletChain: effectiveWalletChain,
+      isConnected,
+      connectedAddress,
+      zkLoginUserAddress,
+      isZkLoginReady,
+      hasAccessToken: !!accessToken,
+      timestamp: new Date().toISOString()
+    });
+  }, [accessToken, effectiveWalletChain, isConnected, connectedAddress, zkLoginUserAddress, isZkLoginReady]);
 
   return (
     <AuthContext.Provider
@@ -468,7 +503,7 @@ export function useAuth() {
 export function ProtectedRoute({ children }) {
   const { connected: solanaConnected } = useWallet();
   const { connected: suiConnected } = useSuiWallet();
-  const { isSignedIn, isLoading, walletChain, zkLoginUserAddress } = useAuth();
+  const { isSignedIn, isLoading, walletChain, zkLoginUserAddress, accessToken } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -477,19 +512,37 @@ export function ProtectedRoute({ children }) {
     : ((walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN) ? (zkLoginUserAddress || suiConnected) : false);
 
   useEffect(() => {
-    if (!isLoading && (!isConnected || !isSignedIn)) {
-      navigate("/login", {
-        state: { from: location.pathname },
-        replace: true
-      });
-    }
-  }, [isConnected, isSignedIn, navigate, location, isLoading]);
+    // Add a small delay to prevent race conditions during auth flow
+    const checkAuth = () => {
+      // Only redirect if we're sure the user is not authenticated
+      // Don't redirect if we have an access token (even if other states are still syncing)
+      if (!isLoading && !accessToken && (!isConnected || !isSignedIn)) {
+        console.log('🔄 Redirecting to login:', { 
+          isLoading, 
+          isConnected, 
+          isSignedIn, 
+          hasAccessToken: !!accessToken,
+          walletChain,
+          zkLoginUserAddress: !!zkLoginUserAddress 
+        });
+        navigate("/login", {
+          state: { from: location.pathname },
+          replace: true
+        });
+      }
+    };
+
+    // Small delay to allow state updates to complete
+    const timeoutId = setTimeout(checkAuth, 100);
+    return () => clearTimeout(timeoutId);
+  }, [isConnected, isSignedIn, navigate, location, isLoading, accessToken, walletChain, zkLoginUserAddress]);
 
   if (isLoading) {
     return null;
   }
 
-  if (isConnected && isSignedIn) {
+  // Allow access if we have an access token, even if other states are still syncing
+  if (accessToken && (isConnected && isSignedIn)) {
     return <>{children}</>;
   }
 

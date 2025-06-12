@@ -111,8 +111,14 @@ export function ZkLoginProvider({ children }) {
     try {
       console.log('🔐 Processing zkLogin callback...');
       
-      // Store the JWT
+      // Validate JWT first
+      if (!jwt || typeof jwt !== 'string') {
+        throw new Error('Invalid JWT token provided');
+      }
+      
+      // Store the JWT immediately to prevent race conditions
       setZkLoginJwt(jwt);
+      console.log('✅ JWT stored in localStorage');
       
       // Call backend to get or create zkLogin wallet using Shinami
       console.log('🏦 Creating zkLogin wallet via backend...');
@@ -141,9 +147,11 @@ export function ZkLoginProvider({ children }) {
         userId: result.userId 
       });
       
-      // Store the zkLogin data
+      // Store the zkLogin data atomically
       setZkLoginUserSalt(userSalt);
       setZkLoginUserAddress(zkLoginUserAddr);
+      
+      console.log('✅ zkLogin data stored successfully');
       
       // Return the auth data for login
       return {
@@ -153,6 +161,10 @@ export function ZkLoginProvider({ children }) {
       };
     } catch (error) {
       console.error('❌ Error handling zkLogin callback:', error);
+      // Clear any partial state on error
+      setZkLoginJwt(null);
+      setZkLoginUserSalt(null);
+      setZkLoginUserAddress(null);
       throw error;
     }
   }, [setZkLoginJwt, setZkLoginUserSalt, setZkLoginUserAddress]);

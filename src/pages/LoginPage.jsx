@@ -224,7 +224,7 @@ export default function LoginPage() {
                 </AnimateComponent>
               )}
 
-              {walletChain === WALLET_CHAINS.SUI && (
+              {(walletChain === WALLET_CHAINS.SUI || walletChain === WALLET_CHAINS.SUI_ZKLOGIN) && (
                 <AnimateComponent delay={200}>
                   <div className="mt-4 space-y-3">
                     <div className="px-4 py-3 bg-yellow-50/80 border border-yellow-200 rounded-xl text-center">

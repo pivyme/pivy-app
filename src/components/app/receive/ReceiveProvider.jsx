@@ -355,7 +355,7 @@ export function ReceiveProvider({ children, username, tag }) {
         console.error("Error initializing:", err.response)
         setError(
           err.response?.status === 404 || err.response?.data?.message === "User not found"
-            ? "User not found"
+            ? "Invalid link"
             : err.response?.data?.message || "Failed to load data"
         )
       } finally {

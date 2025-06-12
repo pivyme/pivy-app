@@ -24,7 +24,15 @@ export default function ConnectWallet() {
   const { setVisible } = useWalletModal();
 
   const currentChain = walletChain || WALLET_CHAINS.SOLANA; // Default to SOLANA if undefined
-  const isConnected = currentChain === WALLET_CHAINS.SOLANA ? solanaConnected : (currentChain === WALLET_CHAINS.SUI ? (zkLoginUserAddress || suiConnected) : false);
+  
+  // For display purposes, treat SUI_ZKLOGIN as SUI
+  const displayChain = currentChain === WALLET_CHAINS.SUI_ZKLOGIN ? WALLET_CHAINS.SUI : currentChain;
+  
+  const isConnected = currentChain === WALLET_CHAINS.SOLANA 
+    ? solanaConnected 
+    : ((currentChain === WALLET_CHAINS.SUI || currentChain === WALLET_CHAINS.SUI_ZKLOGIN) 
+        ? (zkLoginUserAddress || suiConnected) 
+        : false);
 
   const handleAction = () => {
     if (isConnected) {
@@ -34,7 +42,7 @@ export default function ConnectWallet() {
 
     if (currentChain === WALLET_CHAINS.SOLANA) {
       setVisible(true);
-    } else if (currentChain === WALLET_CHAINS.SUI) {
+    } else if (currentChain === WALLET_CHAINS.SUI || currentChain === WALLET_CHAINS.SUI_ZKLOGIN) {
       const suiConnectButton = document.getElementById('sui-connect-button');
       if (suiConnectButton) {
         const childButton = suiConnectButton.querySelector('button');
@@ -50,9 +58,9 @@ export default function ConnectWallet() {
   };
 
   const getButtonText = () => {
-    const chainDetails = CHAIN_DETAILS[currentChain];
+    const chainDetails = CHAIN_DETAILS[displayChain];
     if (isConnected) {
-      if (currentChain === WALLET_CHAINS.SUI && zkLoginUserAddress) {
+      if ((currentChain === WALLET_CHAINS.SUI || currentChain === WALLET_CHAINS.SUI_ZKLOGIN) && zkLoginUserAddress) {
         return "Continue with Google Account";
       }
       return "Sign message to continue";
@@ -69,7 +77,7 @@ export default function ConnectWallet() {
       </div>
 
       {/* For SUI, show both options */}
-      {currentChain === WALLET_CHAINS.SUI && (
+      {(currentChain === WALLET_CHAINS.SUI || currentChain === WALLET_CHAINS.SUI_ZKLOGIN) && (
         <>
           <BounceButton
             className="tracking-tight font-bold px-8 py-6 text-lg bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm w-full text-white"
