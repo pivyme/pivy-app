@@ -31,7 +31,7 @@ export default function AppWalletProvider({ children }) {
       : WalletAdapterNetwork.Mainnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+    () => [],
     []
   );
 

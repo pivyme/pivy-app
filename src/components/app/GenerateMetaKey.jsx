@@ -29,7 +29,7 @@ const VIEW_CONTEXT = 'PIVY View Authority | Deterministic Derivation';
 
 function SuiGenerateMetaKey() {
   const suiWallet = useSuiWallet();
-  const { accessToken, saveMetaKeys, fetchMe, me } = useAuth();
+  const { accessToken, saveMetaKeys, unlockMetaKeysWithPin, hasEncryptedMetaKeys, fetchMe, me } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -37,7 +37,8 @@ function SuiGenerateMetaKey() {
 
   // Determine if user already has meta keys
   const hasExistingKeys = me?.metaViewPub && me?.metaSpendPub;
-  const isNewAccount = !hasExistingKeys;
+  const hasEncryptedKeys = hasEncryptedMetaKeys();
+  const isNewAccount = !hasExistingKeys && !hasEncryptedKeys;
 
   const resetState = () => {
     setError('');
@@ -96,6 +97,17 @@ function SuiGenerateMetaKey() {
       setIsLoading(true);
       setError('');
 
+      if (hasEncryptedKeys && !hasExistingKeys) {
+        // User has encrypted keys but no backend record - unlock existing keys
+        const unlocked = await unlockMetaKeysWithPin(pin);
+        if (unlocked) {
+          setSuccess(true);
+        } else {
+          setError('Incorrect PIN. Please try again.');
+        }
+        return;
+      }
+
       const metaData = await deriveMetaKeysWithPin(pin);
 
       if (hasExistingKeys) {
@@ -105,15 +117,23 @@ function SuiGenerateMetaKey() {
           return;
         }
 
-        // PIN is correct - just save to local storage
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
-        setSuccess(true);
+        // PIN is correct - save to secure storage
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (saved) {
+          setSuccess(true);
+        } else {
+          setError('Failed to save keys securely. Please try again.');
+        }
       } else {
         // New account - register meta keys
         console.log('Generated Meta Keys:', metaData);
 
-        // Store ALL private keys locally (spending key never goes to backend)
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
+        // Store ALL private keys securely (spending key never goes to backend)
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (!saved) {
+          setError('Failed to save keys securely. Please try again.');
+          return;
+        }
 
         // Send only non-spending keys to backend for transaction indexing
         const metaDataToSend = {
@@ -266,7 +286,7 @@ function SuiGenerateMetaKey() {
 
 function SolanaGenerateMetaKey() {
   const solanaWallet = useSolanaWallet();
-  const { accessToken, saveMetaKeys, fetchMe, me } = useAuth();
+  const { accessToken, saveMetaKeys, unlockMetaKeysWithPin, hasEncryptedMetaKeys, fetchMe, me } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -274,7 +294,8 @@ function SolanaGenerateMetaKey() {
 
   // Determine if user already has meta keys
   const hasExistingKeys = me?.metaViewPub && me?.metaSpendPub;
-  const isNewAccount = !hasExistingKeys;
+  const hasEncryptedKeys = hasEncryptedMetaKeys();
+  const isNewAccount = !hasExistingKeys && !hasEncryptedKeys;
 
   const resetState = () => {
     setError('');
@@ -327,6 +348,17 @@ function SolanaGenerateMetaKey() {
       setIsLoading(true);
       setError('');
 
+      if (hasEncryptedKeys && !hasExistingKeys) {
+        // User has encrypted keys but no backend record - unlock existing keys
+        const unlocked = await unlockMetaKeysWithPin(pin);
+        if (unlocked) {
+          setSuccess(true);
+        } else {
+          setError('Incorrect PIN. Please try again.');
+        }
+        return;
+      }
+
       const metaData = await deriveMetaKeysWithPin(pin);
 
       if (hasExistingKeys) {
@@ -336,15 +368,23 @@ function SolanaGenerateMetaKey() {
           return;
         }
 
-        // PIN is correct - just save to local storage
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
-        setSuccess(true);
+        // PIN is correct - save to secure storage
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (saved) {
+          setSuccess(true);
+        } else {
+          setError('Failed to save keys securely. Please try again.');
+        }
       } else {
         // New account - register meta keys
         console.log('Generated Meta Keys:', metaData);
 
-        // Store ALL private keys locally (spending key never goes to backend)
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
+        // Store ALL private keys securely (spending key never goes to backend)
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (!saved) {
+          setError('Failed to save keys securely. Please try again.');
+          return;
+        }
 
         // Send only non-spending keys to backend for transaction indexing
         const metaDataToSend = {
@@ -498,7 +538,7 @@ function SolanaGenerateMetaKey() {
 }
 
 function ZkLoginGenerateMetaKey() {
-  const { accessToken, saveMetaKeys, fetchMe, me } = useAuth();
+  const { accessToken, saveMetaKeys, unlockMetaKeysWithPin, hasEncryptedMetaKeys, fetchMe, me } = useAuth();
   const { deriveZkLoginMetaKeys } = useZkLogin();
   const [isLoading, setIsLoading] = useState(false);
   const [pin, setPin] = useState('');
@@ -507,7 +547,8 @@ function ZkLoginGenerateMetaKey() {
 
   // Determine if user already has meta keys
   const hasExistingKeys = me?.metaViewPub && me?.metaSpendPub;
-  const isNewAccount = !hasExistingKeys;
+  const hasEncryptedKeys = hasEncryptedMetaKeys();
+  const isNewAccount = !hasExistingKeys && !hasEncryptedKeys;
 
   const resetState = () => {
     setError('');
@@ -533,6 +574,17 @@ function ZkLoginGenerateMetaKey() {
       setIsLoading(true);
       setError('');
 
+      if (hasEncryptedKeys && !hasExistingKeys) {
+        // User has encrypted keys but no backend record - unlock existing keys
+        const unlocked = await unlockMetaKeysWithPin(pin);
+        if (unlocked) {
+          setSuccess(true);
+        } else {
+          setError('Incorrect PIN. Please try again.');
+        }
+        return;
+      }
+
       const metaData = await deriveMetaKeysWithPin(pin);
 
       if (hasExistingKeys) {
@@ -542,15 +594,23 @@ function ZkLoginGenerateMetaKey() {
           return;
         }
 
-        // PIN is correct - just save to local storage
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
-        setSuccess(true);
+        // PIN is correct - save to secure storage
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (saved) {
+          setSuccess(true);
+        } else {
+          setError('Failed to save keys securely. Please try again.');
+        }
       } else {
         // New account - register meta keys
         console.log('Generated Meta Keys (zkLogin):', metaData);
 
-        // Store ALL private keys locally (spending key never goes to backend)
-        saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv);
+        // Store ALL private keys securely (spending key never goes to backend)
+        const saved = await saveMetaKeys(metaData.metaSpendPriv, metaData.metaViewPriv, pin);
+        if (!saved) {
+          setError('Failed to save keys securely. Please try again.');
+          return;
+        }
 
         // Send only non-spending keys to backend for transaction indexing
         const metaDataToSend = {

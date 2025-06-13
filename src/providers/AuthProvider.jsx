@@ -29,20 +29,19 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Header, Payload, SIWS } from "@web3auth/sign-in-with-solana";
-import { useLocalStorage } from "@uidotdev/usehooks";
+import { useLocalStorage, useSessionStorage } from "@uidotdev/usehooks";
 import { Buffer } from "buffer";
 import { useWallet as useSuiWallet } from "@suiet/wallet-kit";
 import { verifyPersonalMessageSignature } from '@mysten/sui/verify';
 import { useZkLogin } from '@/providers/ZkLoginProvider';
 import { isTestnet } from '@/config';
+import { SecureMetaKeyStorage } from '@/lib/secureMetaKeyStorage';
 
 const WALLET_CHAINS = {
   SOLANA: 'SOLANA',
   SUI: 'SUI',
   SUI_ZKLOGIN: 'SUI_ZKLOGIN'
 }
-
-
 
 function createSolanaMessage(address, statement) {
   const header = new Header();
@@ -94,6 +93,10 @@ const AuthContext = createContext({
   metaViewPriv: null,
   hasMetaKeys: false,
   saveMetaKeys: () => { },
+  unlockMetaKeysWithPin: () => { },
+  hasEncryptedMetaKeys: () => { },
+  clearMetaKeys: () => { },
+  isMetaKeysLoaded: false,
   // ZkLogin specific
   initZkLogin: () => { },
   zkLoginUserAddress: null,
@@ -113,8 +116,10 @@ export function AuthProvider({ children }) {
     "pivy-wallet-chain",
     WALLET_CHAINS.SOLANA
   );
-  const [metaSpendPriv, setMetaSpendPriv] = useLocalStorage("pivy-meta-spend-priv", null);
-  const [metaViewPriv, setMetaViewPriv] = useLocalStorage("pivy-meta-view-priv", null);
+  // Secure meta keys state (no longer stored in localStorage)
+  const [metaSpendPriv, setMetaSpendPriv] = useState(null);
+  const [metaViewPriv, setMetaViewPriv] = useState(null);
+  const [isMetaKeysLoaded, setIsMetaKeysLoaded] = useState(false);
   const [me, setMe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
@@ -260,12 +265,6 @@ export function AuthProvider({ children }) {
     };
   };
 
-
-
-
-
-
-
   const handleSignIn = useCallback(async (signInData = null) => {
     console.log('🚀 Starting sign-in process...', { hasSignInData: !!signInData, walletChain: effectiveWalletChain });
     
@@ -365,18 +364,26 @@ export function AuthProvider({ children }) {
     }
   }, [effectiveWalletChain, disconnectSolana, disconnectSui]);
 
+  // Clear all meta keys (defined early to avoid hoisting issues)
+  const clearMetaKeys = useCallback(() => {
+    SecureMetaKeyStorage.clearMetaKeys();
+    setMetaSpendPriv(null);
+    setMetaViewPriv(null);
+    setIsMetaKeysLoaded(false);
+  }, []);
+
   const signOut = useCallback(() => {
     setAccessToken(null);
     setLastConnectedAddress(null);
     setWalletChain(null);
-    setMetaSpendPriv(null);
-    setMetaViewPriv(null);
+    // Clear secure meta keys
+    clearMetaKeys();
     // Clear zkLogin data
     clearZkLoginData();
     handleDisconnect();
     setMe(null);
     navigate("/login");
-  }, [setAccessToken, setLastConnectedAddress, handleDisconnect, navigate, clearZkLoginData]);
+  }, [setAccessToken, setLastConnectedAddress, handleDisconnect, navigate, clearZkLoginData, clearMetaKeys]);
 
   const fetchMe = useCallback(async () => {
     if (!accessToken) {
@@ -429,11 +436,57 @@ export function AuthProvider({ children }) {
     }
   }, [getWalletState, lastConnectedAddress, signOut, effectiveWalletChain, zkLoginUserAddress, setLastConnectedAddress]);
 
-  // Function to save meta keys
-  const saveMetaKeys = useCallback((spendPriv, viewPriv) => {
-    setMetaSpendPriv(spendPriv);
-    setMetaViewPriv(viewPriv);
-  }, [setMetaSpendPriv, setMetaViewPriv]);
+  // Function to securely save meta keys with PIN
+  const saveMetaKeys = useCallback(async (spendPriv, viewPriv, pin) => {
+    if (!pin) {
+      console.error('PIN is required to save meta keys securely');
+      return false;
+    }
+    
+    const success = await SecureMetaKeyStorage.storeEncryptedMetaKeys(pin, spendPriv, viewPriv);
+    if (success) {
+      setMetaSpendPriv(spendPriv);
+      setMetaViewPriv(viewPriv);
+      setIsMetaKeysLoaded(true);
+    }
+    return success;
+  }, []);
+
+  // Function to unlock meta keys with PIN
+  const unlockMetaKeysWithPin = useCallback(async (pin) => {
+    const metaKeysData = await SecureMetaKeyStorage.retrieveMetaKeysWithPin(pin);
+    if (metaKeysData) {
+      setMetaSpendPriv(metaKeysData.spendPriv);
+      setMetaViewPriv(metaKeysData.viewPriv);
+      setIsMetaKeysLoaded(true);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Function to check if encrypted meta keys exist
+  const hasEncryptedMetaKeys = useCallback(() => {
+    return SecureMetaKeyStorage.hasEncryptedMetaKeys();
+  }, []);
+
+
+
+  // Auto-load meta keys from session storage on app start (UX improvement)
+  useEffect(() => {
+    const loadMetaKeysFromSession = async () => {
+      if (!isMetaKeysLoaded && !metaSpendPriv && !metaViewPriv) {
+        const metaKeysData = await SecureMetaKeyStorage.retrieveMetaKeysWithSession();
+        if (metaKeysData) {
+          setMetaSpendPriv(metaKeysData.spendPriv);
+          setMetaViewPriv(metaKeysData.viewPriv);
+          setIsMetaKeysLoaded(true);
+          console.log('✅ Meta keys loaded from secure session storage');
+        }
+      }
+    };
+    
+    loadMetaKeysFromSession();
+  }, [isMetaKeysLoaded, metaSpendPriv, metaViewPriv]);
 
   // Check if meta keys are complete
   const hasMetaKeys = useMemo(() => {
@@ -442,9 +495,10 @@ export function AuthProvider({ children }) {
       me.metaSpendPub && 
       me.metaViewPub && 
       metaSpendPriv && 
-      metaViewPriv
+      metaViewPriv &&
+      isMetaKeysLoaded
     );
-  }, [me, metaSpendPriv, metaViewPriv]);
+  }, [me, metaSpendPriv, metaViewPriv, isMetaKeysLoaded]);
 
   // Debug logging for state changes
   useEffect(() => {
@@ -476,9 +530,13 @@ export function AuthProvider({ children }) {
         connectedAddress,
         walletChainId,
         saveMetaKeys,
+        unlockMetaKeysWithPin,
+        hasEncryptedMetaKeys,
+        clearMetaKeys,
         hasMetaKeys,
         metaSpendPriv,
         metaViewPriv,
+        isMetaKeysLoaded,
         // ZkLogin specific
         initZkLogin,
         zkLoginUserAddress,
