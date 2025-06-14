@@ -1066,6 +1066,9 @@ export default function FundsCard() {
 
   // Calculate total USD value
   const totalUsdValue = balances?.tokens?.reduce((acc, token) => acc + token.usdValue, 0) || 0
+  
+  // Check if there are any tokens with actual balances
+  const hasTokens = balances?.tokens && balances.tokens.length > 0 && balances.tokens.some(token => token.total > 0)
 
   return (
     <ColorCard color="primary" className='nice-card p-2 w-full'>
@@ -1101,6 +1104,65 @@ export default function FundsCard() {
               This will just take a moment ✨
             </div>
           </motion.div>
+        ) : !hasTokens ? (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 500,
+              damping: 30,
+              mass: 1,
+            }}
+            className='p-4'
+          >
+            {/* Header with $0 value */}
+            <motion.div
+              className='mb-6'
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{
+                type: "spring",
+                stiffness: 500,
+                damping: 30,
+                mass: 1,
+              }}
+            >
+              <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
+                Stealth Balances
+              </h2>
+              <div className='mt-1 mb-3'>
+                <span className='text-4xl font-bold tracking-tighter text-gray-900'>
+                  $0.00
+                </span>
+                <span className='text-sm text-gray-500 ml-2'>USD</span>
+              </div>
+              <p className='text-sm text-gray-500'>
+                Private payments received through PIVY
+              </p>
+            </motion.div>
+
+            {/* Empty state content */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className='text-center py-4'
+            >
+              <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">💝</span>
+              </div>
+              
+              <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                No stealth balances yet
+              </h3>
+              
+              <p className='text-sm text-gray-600 mb-3 max-w-xs mx-auto'>
+                This shows tokens you&apos;ve received through <span className="font-medium text-gray-900">PIVY&apos;s stealth payments</span>, not your regular wallet balance.
+              </p>
+            </motion.div>
+          </motion.div>
         ) : (
           <motion.div
             key="content"
@@ -1127,19 +1189,22 @@ export default function FundsCard() {
               }}
             >
               <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
-                My Wallet
+                Stealth Balances
               </h2>
-              <div className='mt-2'>
+              <div className='mt-1 mb-3'>
                 <span className='text-4xl font-bold tracking-tighter text-gray-900'>
                   ${totalUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className='text-sm text-gray-500 ml-2'>USD</span>
               </div>
+              <p className='text-sm text-gray-500'>
+                Private payments received through PIVY
+              </p>
             </motion.div>
 
             {/* Token Grid */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              {balances.tokens?.map((token, index) => (
+              {balances.tokens?.filter(token => token.total > 0).map((token, index) => (
                 <TokenCard key={token.mintAddress} token={token} index={index} />
               ))}
             </div>
