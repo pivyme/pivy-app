@@ -447,6 +447,12 @@ const KnowMoreCard = () => {
           thumbnail: "/pivy-technical-overview-sui.png",
           link: "https://youtu.be/tMwPvAOQlvE?si=S_ObxwuGE0RgSoHm",
         },
+        {
+          title: "Walkthrough Demo",
+          description: "Demonstrates the core functionality and user experience of Pivy!",
+          thumbnail: "/pivy-walkthrough-demo.png",
+          link: "https://youtu.be/tvQ7xeQnK5M?si=Yn6NePPrgolUUr7q",
+        }
       ],
       deckLink: "https://youtu.be/rv9xII407GM?si=W8a1d7sU3ueW7npj"
     }
